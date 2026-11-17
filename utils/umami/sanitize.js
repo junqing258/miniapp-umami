@@ -6,6 +6,13 @@ const EVENT_PROPERTIES = {
   home_refresh: [],
   home_list_item_click: ['source', 'position'],
   home_release_entry_click: [],
+  performance_page_ready: ['duration_ms'],
+  performance_app_startup: ['duration_ms'],
+  performance_app_launch: ['duration_ms'],
+  performance_subpackage_route: ['package_name', 'duration_ms'],
+  performance_package_script: ['package_name', 'duration_ms'],
+  performance_fcp: ['value_ms'],
+  performance_lcp: ['value_ms'],
 };
 
 const MAX_STRING_LENGTH = 80;

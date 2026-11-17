@@ -17,10 +17,34 @@ const TITLES = {
 
 let lastRoute = '';
 
+function after(result, callback) {
+  if (result && typeof result.then === 'function') {
+    result.then(callback, callback);
+  } else {
+    callback();
+  }
+  return result;
+}
+
 export function definePage(definition) {
+  const originalOnLoad = definition.onLoad;
+  const originalOnReady = definition.onReady;
   const originalOnShow = definition.onShow;
   return Page({
     ...definition,
+    onLoad(...args) {
+      this.__umamiLoadAt = Date.now();
+      return originalOnLoad && originalOnLoad.apply(this, args);
+    },
+    onReady(...args) {
+      const result = originalOnReady && originalOnReady.apply(this, args);
+      return after(result, () => {
+        if (this.__umamiPageReadyReported) return;
+        this.__umamiPageReadyReported = true;
+        const loadAt = this.__umamiLoadAt || Date.now();
+        umami.trackPageReady(Date.now() - loadAt, normalizeRoute(this.route));
+      });
+    },
     onShow(...args) {
       const result = originalOnShow && originalOnShow.apply(this, args);
       const route = normalizeRoute(this.route);

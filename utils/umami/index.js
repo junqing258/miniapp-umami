@@ -1,9 +1,12 @@
 import Transport from './transport';
+import { startPerformanceObserver } from './performance';
 import { normalizeLanguage, normalizeRoute, sanitizeEvent } from './sanitize';
 
 let options = null;
 let transport = null;
 let systemInfo = null;
+let launchAt = 0;
+let startupReported = false;
 
 function getSystemInfo() {
   if (systemInfo) return systemInfo;
@@ -36,6 +39,20 @@ function send(eventPayload) {
   transport.enqueue({ type: 'event', payload: eventPayload });
 }
 
+function trackEvent(name, properties, route) {
+  const event = sanitizeEvent(name, properties);
+  if (!event) return;
+  const pages = getCurrentPages();
+  const currentPage = pages[pages.length - 1];
+  send(
+    payload({
+      url: normalizeRoute(route || (currentPage && currentPage.route)),
+      name: event.name,
+      data: event.data,
+    }),
+  );
+}
+
 export function getHostname() {
   return options && options.hostname ? options.hostname : '';
 }
@@ -49,6 +66,12 @@ const umami = {
     }
     options = nextOptions;
     transport = new Transport(nextOptions);
+    startPerformanceObserver(trackEvent, nextOptions.subpackages);
+  },
+
+  markLaunch() {
+    launchAt = Date.now();
+    startupReported = false;
   },
 
   trackPageview({ url, title = '', referrer = '' } = {}) {
@@ -58,15 +81,24 @@ const umami = {
   },
 
   track(name, properties) {
-    const event = sanitizeEvent(name, properties);
-    if (!event) return;
-    const pages = getCurrentPages();
-    const currentPage = pages[pages.length - 1];
-    send(payload({ url: normalizeRoute(currentPage && currentPage.route), name: event.name, data: event.data }));
+    trackEvent(name, properties);
+  },
+
+  trackPageReady(duration, route) {
+    const elapsed = Number(duration);
+    if (!Number.isFinite(elapsed) || elapsed < 0) return;
+
+    const durationMs = Math.round(elapsed);
+    trackEvent('performance_page_ready', { duration_ms: durationMs }, route);
+
+    if (!startupReported && launchAt) {
+      startupReported = true;
+      trackEvent('performance_app_startup', { duration_ms: Math.max(0, Date.now() - launchAt) }, route);
+    }
   },
 
   flush() {
-    if (transport) transport.drain();
+    if (transport) transport.flush();
   },
 
   setEnabled(value) {

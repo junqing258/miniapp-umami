@@ -12,6 +12,7 @@ if (config.isMock) {
 App({
   onLaunch() {
     umami.init(config.umami);
+    umami.markLaunch();
     const updateManager = wx.getUpdateManager();
 
     updateManager.onCheckForUpdate((res) => {
