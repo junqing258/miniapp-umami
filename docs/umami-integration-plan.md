@@ -64,7 +64,7 @@ definePage({
 
 `definePage` 内部调用原生 `Page`，组合原有生命周期并保留 `this`、参数、返回值；不全局替换 `Page`。已使用封装的页面不再手动调用 `trackPageview`，避免重复计数。自动统计只注册一次，重复初始化应幂等。
 
-在根目录 `config.js` 增加 `umami` 配置项：`enabled`、`endpoint`、`websiteId`、`hostname`、`debug` 和环境启用策略。逻辑 hostname 实施时选定固定值，不根据设备 IP 生成，也不将其误作采集服务器地址。
+在根目录 `config.js` 增加 `umami` 配置项：`enabled`、`endpoint`、`websiteId`、`hostname`、可选 `tag`、`debug` 和环境启用策略。逻辑 hostname 实施时选定固定值，不根据设备 IP 生成，也不将其误作采集服务器地址。联调可使用固定 `tag: 'test-audience'` 作为测试受众，在 Umami 中按 Tag 筛选；它随既有请求发送，不额外生成事件。
 
 配置只写入根 `config.js`。优先由 `app.js` 显式导入 `./config.js`，再以参数传入 `umami.init(config.umami)`，使 SDK 不依赖项目配置路径；业务 request 改为显式导入 `../config.js`。如确需 SDK 内直接引用根配置，从 `utils/umami/index.js` 出发应为 `../../config.js`，不是 `../config`。完成解析核对后删除或归档 `config/index.js`，保留唯一配置来源。
 
@@ -84,6 +84,7 @@ definePage({
 | `language` | 微信系统信息中的语言；将下划线分隔规范化为连字符，如 `zh_CN` → `zh-CN`，验证目标实例展示 |
 | `screen` | 微信窗口或设备信息中的屏幕尺寸 |
 | `name`、`data` | 自定义事件名和白名单属性 |
+| `tag` | 可选受众标签；联调固定为 `test-audience`，不写入个人或业务身份信息 |
 
 官方文档要求有效的 User-Agent。第一步需验证小程序真实请求头能否被该实例接受，不预设客户端能够自由修改该请求头。若直连不能满足采集要求，再设计服务端转发，转发方案需同时验证来源 IP 和访客统计，避免所有请求被统计为同一访问者。
 

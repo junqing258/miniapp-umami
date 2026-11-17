@@ -9,11 +9,12 @@ wx.request = function (config) {
   }
   var resTemplate = Mock._mocked[config.url].template;
   var response = Mock.mock(resTemplate);
+  var wxResponse = { statusCode: 200, data: response, header: {} };
   if (typeof config.success == 'function') {
-    config.success(response);
+    config.success(wxResponse);
   }
   if (typeof config.complete == 'function') {
-    config.complete(response);
+    config.complete(wxResponse);
   }
 };
 module.exports = Mock;

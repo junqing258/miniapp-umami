@@ -1,6 +1,9 @@
 import request from '~/api/request';
+import config from '../../config.js';
+import umami from '~/utils/umami/index';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   data: {
     phoneNumber: '',
     sendCodeCount: 60,
@@ -45,6 +48,7 @@ Page({
     const res = await request('/login/postCodeVerify', 'get', { code: this.data.verifyCode });
     if (res.success) {
       await wx.setStorageSync('access_token', res.data.token);
+      umami.track('login_success', { method: 'code', mock: config.isMock });
       wx.switchTab({
         url: `/pages/my/index`,
       });

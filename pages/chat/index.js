@@ -1,8 +1,10 @@
 // pages/chat/index.js
+import { definePage } from '~/utils/umami/page';
+
 const app = getApp();
 const { socket } = app.globalData; // 获取已连接的socketTask
 
-Page({
+definePage({
   /** 页面的初始数据 */
   data: {
     myAvatar: '/static/chat/avatar.png', // 自己的头像

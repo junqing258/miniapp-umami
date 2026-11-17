@@ -1,6 +1,7 @@
 import request from '~/api/request';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   /**
    * 页面的初始数据
    */

@@ -1,6 +1,9 @@
 import request from '~/api/request';
+import config from '../../config.js';
+import umami from '~/utils/umami/index';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   data: {
     phoneNumber: '',
     isPhoneNumber: false,
@@ -69,6 +72,7 @@ Page({
       const res = await request('/login/postPasswordLogin', 'post', { data: this.data.passwordInfo });
       if (res.success) {
         await wx.setStorageSync('access_token', res.data.token);
+        umami.track('login_success', { method: 'password', mock: config.isMock });
         wx.switchTab({
           url: `/pages/my/index`,
         });

@@ -1,10 +1,12 @@
 import Message from 'tdesign-miniprogram/message/index';
 import request from '~/api/request';
+import umami from '~/utils/umami/index';
+import { definePage } from '~/utils/umami/page';
 
 // 获取应用实例
 // const app = getApp()
 
-Page({
+definePage({
   data: {
     enable: false,
     swiperList: [],
@@ -75,8 +77,13 @@ Page({
     });
   },
   goRelease() {
+    umami.track('home_release_entry_click');
     wx.navigateTo({
       url: '/pages/release/index',
     });
+  },
+  onCardTap(event) {
+    const { source, position } = event.currentTarget.dataset;
+    umami.track('home_list_item_click', { source, position });
   },
 });

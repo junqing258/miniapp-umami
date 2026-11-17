@@ -1,11 +1,12 @@
 // pages/message/message.js
 import { fetchMessageList, markMessagesRead } from '~/mock/chat';
+import { definePage } from '~/utils/umami/page';
 
 const app = getApp();
 const { socket } = app.globalData; // 获取已连接的 socketTask
 let currentUser = null; // 当前打开的聊天用户 { userId, eventChannel }
 
-Page({
+definePage({
   /** 页面的初始数据 */
   data: {
     messageList: [], // 完整消息列表 { userId, name, avatar, messages }

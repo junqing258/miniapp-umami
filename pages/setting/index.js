@@ -1,6 +1,7 @@
 import useToastBehavior from '~/behaviors/useToast';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   behaviors: [useToastBehavior],
   data: {
     menuData: [

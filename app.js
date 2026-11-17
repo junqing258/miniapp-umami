@@ -1,8 +1,9 @@
 // app.js
-import config from './config';
+import config from './config.js';
 import Mock from './mock/index';
 import createBus from './utils/eventBus';
 import { connectSocket, fetchUnreadNum } from './mock/chat';
+import umami from './utils/umami/index';
 
 if (config.isMock) {
   Mock();
@@ -10,6 +11,7 @@ if (config.isMock) {
 
 App({
   onLaunch() {
+    umami.init(config.umami);
     const updateManager = wx.getUpdateManager();
 
     updateManager.onCheckForUpdate((res) => {
@@ -30,6 +32,9 @@ App({
 
     this.getUnreadNum();
     this.connect();
+  },
+  onHide() {
+    umami.flush();
   },
   globalData: {
     userInfo: null,

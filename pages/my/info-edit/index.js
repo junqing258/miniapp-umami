@@ -1,7 +1,8 @@
 import request from '~/api/request';
 import { areaList } from './areaData.js';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   data: {
     personInfo: {
       name: '',

@@ -1,6 +1,8 @@
 // pages/release/index.js
+import umami from '~/utils/umami/index';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   /**
    * 页面的初始数据
    */
@@ -54,11 +56,13 @@ Page({
     });
   },
   saveDraft() {
+    umami.track('draft_save_click');
     wx.reLaunch({
       url: `/pages/home/index?oper=save`,
     });
   },
   release() {
+    umami.track('release_click');
     wx.reLaunch({
       url: `/pages/home/index?oper=release`,
     });

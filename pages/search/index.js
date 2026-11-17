@@ -1,6 +1,8 @@
 import request from '~/api/request';
+import umami from '~/utils/umami/index';
+import { definePage } from '~/utils/umami/page';
 
-Page({
+definePage({
   data: {
     historyWords: [],
     popularWords: [],
@@ -145,7 +147,7 @@ Page({
     const { index } = e.currentTarget.dataset;
     const searchValue = historyWords[index || 0] || '';
 
-    this.setHistoryWords(searchValue);
+    this.submitSearch(searchValue, 'history');
   },
 
   handlePopularTap(e) {
@@ -153,7 +155,7 @@ Page({
     const { index } = e.currentTarget.dataset;
     const searchValue = popularWords[index || 0] || '';
 
-    this.setHistoryWords(searchValue);
+    this.submitSearch(searchValue, 'popular');
   },
 
   /**
@@ -163,9 +165,14 @@ Page({
    */
   handleSubmit(e) {
     const { value } = e.detail;
-    if (value.length === 0) return;
+    this.submitSearch(value, 'input');
+  },
 
-    this.setHistoryWords(value);
+  submitSearch(value, source) {
+    const searchValue = typeof value === 'string' ? value.trim() : '';
+    if (!searchValue) return;
+    this.setHistoryWords(searchValue);
+    umami.track('search_submit', { source, keyword_length: searchValue.length });
   },
 
   /**
