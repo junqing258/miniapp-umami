@@ -8,13 +8,6 @@ const TEXT_FIELDS = {
   version: 'wx_version',
   SDKVersion: 'wx_sdk_version',
 };
-const NUMBER_FIELDS = {
-  screenWidth: 'wx_screen_width',
-  screenHeight: 'wx_screen_height',
-  windowWidth: 'wx_window_width',
-  windowHeight: 'wx_window_height',
-  pixelRatio: 'wx_pixel_ratio',
-};
 
 function read(method) {
   try {
@@ -51,9 +44,6 @@ export function createSystemContext() {
       if (typeof info[key] !== 'string') return;
       const value = Array.from(info[key].trim()).slice(0, 80).join('');
       if (value) data[TEXT_FIELDS[key]] = value;
-    });
-    Object.keys(NUMBER_FIELDS).forEach((key) => {
-      if (positive(info[key])) data[NUMBER_FIELDS[key]] = info[key];
     });
     const language = normalizeLanguage(info.language);
     if (language) data.wx_language = language;

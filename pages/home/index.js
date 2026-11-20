@@ -11,6 +11,7 @@ definePage({
     enable: false,
     swiperList: [],
     cardInfo: [],
+    publishLabel: '发布',
     // 发布
     motto: 'Hello World',
     userInfo: {},
@@ -48,6 +49,20 @@ definePage({
       this.showOperMsg(content);
     }
   },
+  onShow() {
+    this.__publishVisible = true;
+    const variant = umami.getVariant('home_publish_cta');
+    // setData's callback runs after the selected text has been rendered.
+    this.setData({ publishLabel: variant === 'B' ? '立即发布' : '发布' }, () => {
+      if (this.__publishVisible && variant) umami.trackExposure('home_publish_cta');
+    });
+  },
+  onHide() {
+    this.__publishVisible = false;
+  },
+  onUnload() {
+    this.__publishVisible = false;
+  },
   onRefresh() {
     this.refresh();
   },
@@ -77,7 +92,7 @@ definePage({
     });
   },
   goRelease() {
-    umami.track('home_release_entry_click');
+    umami.trackExperiment('home_publish_cta', 'home_release_entry_click');
     wx.navigateTo({
       url: '/pages/release/index',
     });

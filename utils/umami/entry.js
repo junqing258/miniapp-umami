@@ -70,7 +70,7 @@ export function createEntryContext(entryOptions = {}) {
   let defaults = {};
   if (validScene) {
     const [name, category] = SCENES[scene] || ['未分类场景', 'other'];
-    data.wx_scene = scene;
+    data.wx_scene = String(scene);
     data.wx_scene_name = name;
     data.wx_scene_category = category;
     defaults = { utm_source: 'wechat', utm_medium: category };

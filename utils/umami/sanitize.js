@@ -1,4 +1,5 @@
 const EVENT_PROPERTIES = {
+  experiment_exposure: [],
   login_success: ['method', 'mock'],
   search_submit: ['source', 'keyword_length'],
   release_click: [],

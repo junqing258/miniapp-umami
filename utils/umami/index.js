@@ -5,12 +5,18 @@ import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
 import { createSystemContext } from './system';
 import Heatmap from './heatmap';
 import ErrorMonitor from './errors';
+import { createVersionContext } from './version';
+import Experiments from './experiments';
+import SessionProperties from './session';
 
 let options = null;
 let transport = null;
 let heatmap = null;
 let errors = null;
+let experiments = null;
+let sessionProperties = null;
 const getSystemContext = createSystemContext();
+const getVersionContext = createVersionContext();
 let launchAt = 0;
 let startupReported = false;
 let entryUtmQuery = '';
@@ -27,14 +33,15 @@ function enabled() {
 
 function payload(base = {}) {
   const info = getSystemContext();
-  const data = { ...base.data, ...entryData, ...info.data };
+  const { data: eventData, ...event } = base;
+  const data = { ...eventData, ...entryData };
   return {
     website: options.websiteId,
     hostname: options.hostname,
     language: info.language,
     ...(info.screen ? { screen: info.screen } : {}),
     ...(typeof options.tag === 'string' && options.tag ? { tag: options.tag.slice(0, 80) } : {}),
-    ...base,
+    ...event,
     ...(Object.keys(data).length ? { data } : {}),
   };
 }
@@ -44,8 +51,9 @@ function send(eventPayload) {
   transport.enqueue({ type: 'event', payload: eventPayload });
 }
 
-function trackEvent(name, properties, route) {
+function trackEvent(name, properties, route, experimentData) {
   if (!enabled()) return;
+  if (name === 'experiment_exposure' && !experimentData) return;
   const event = sanitizeEvent(name, properties);
   if (!event) return;
   const pages = getCurrentPages();
@@ -54,7 +62,7 @@ function trackEvent(name, properties, route) {
     payload({
       url: trackingUrl(route || (currentPage && currentPage.route)),
       name: event.name,
-      data: event.data,
+      data: { ...event.data, ...experimentData },
     }),
   );
 }
@@ -71,12 +79,20 @@ const umami = {
       return;
     }
     options = nextOptions;
+    experiments = new Experiments(nextOptions.websiteId, nextOptions.experiments);
     transport = new Transport({
       ...nextOptions,
       onResponse: () => {
+        if (sessionProperties) sessionProperties.sync();
         if (heatmap) heatmap.flush();
       },
     });
+    if (nextOptions.sessionProperties !== false) {
+      sessionProperties = new SessionProperties(nextOptions, transport, () => {
+        const info = getSystemContext();
+        return { ...info, data: { ...info.data, ...getVersionContext() } };
+      });
+    }
     if (nextOptions.errors && nextOptions.errors.enabled) {
       errors = new ErrorMonitor(nextOptions, transport, () => {
         const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
@@ -127,6 +143,22 @@ const umami = {
     trackEvent(name, properties);
   },
 
+  getVariant(experimentId) {
+    return enabled() && experiments ? experiments.getVariant(experimentId) : null;
+  },
+
+  trackExposure(experimentId) {
+    if (!enabled() || !experiments) return;
+    const data = experiments.expose(experimentId);
+    if (data) trackEvent('experiment_exposure', {}, undefined, data);
+  },
+
+  trackExperiment(experimentId, name, properties) {
+    // Preserve the business event even when the experiment is disabled or not yet exposed.
+    const data = enabled() && experiments ? experiments.context(experimentId) : null;
+    trackEvent(name, properties, undefined, data);
+  },
+
   captureException(error, context) {
     if (enabled() && errors) errors.capture(error, context);
   },
@@ -146,6 +178,7 @@ const umami = {
 
   flush() {
     if (transport) transport.flush();
+    if (sessionProperties) sessionProperties.flush();
     if (heatmap) heatmap.flush();
     if (errors) errors.flush();
   },
@@ -163,7 +196,9 @@ const umami = {
   },
 
   setEnabled(value) {
+    if (!value && experiments) experiments.resetExposure();
     if (transport) transport.setEnabled(Boolean(value));
+    if (sessionProperties) sessionProperties.setEnabled(Boolean(value));
     if (heatmap) heatmap.setEnabled(Boolean(value));
     if (errors) errors.setEnabled(Boolean(value));
     if (options) options.enabled = Boolean(value);

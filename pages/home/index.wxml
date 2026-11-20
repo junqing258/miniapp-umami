@@ -47,7 +47,7 @@
 
 <view class="home-release">
   <t-button id="release-entry" theme="primary" size="large" icon="add" shape="round" bindtap="goRelease">
-    发布
+    {{publishLabel}}
   </t-button>
 </view>
 <t-message id="t-message" />

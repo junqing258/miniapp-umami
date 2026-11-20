@@ -28,6 +28,7 @@ export default class Transport {
     this.sending = false;
     this.inFlightCount = 0;
     this.enabled = true;
+    this.generation = 0;
     this.timer = null;
   }
 
@@ -72,6 +73,7 @@ export default class Transport {
   }
 
   request(url, items, data, isBatch) {
+    const { generation } = this;
     wx.request({
       url,
       method: 'POST',
@@ -84,7 +86,7 @@ export default class Transport {
         ...(this.getHeaders ? this.getHeaders() : {}),
       },
       success: (response) => {
-        if (!this.enabled) return;
+        if (!this.enabled || generation !== this.generation) return;
         if (response.statusCode >= 200 && response.statusCode < 300) {
           if (response.data && typeof response.data.cache === 'string') this.sessionCache = response.data.cache;
           if (this.onResponse) this.onResponse(response.data);
@@ -96,8 +98,11 @@ export default class Transport {
           this.handleFailure(items, response.statusCode, response.header);
         }
       },
-      fail: () => this.retryOrDrop(items, true),
+      fail: () => {
+        if (this.enabled && generation === this.generation) this.retryOrDrop(items, true);
+      },
       complete: () => {
+        if (generation !== this.generation) return;
         this.sending = false;
         this.inFlightCount = 0;
         this.drain();
@@ -178,8 +183,11 @@ export default class Transport {
   setEnabled(enabled) {
     this.enabled = enabled;
     if (!enabled) {
+      this.generation += 1;
       this.clear();
       this.sessionCache = '';
+      this.sending = false;
+      this.inFlightCount = 0;
     }
   }
 

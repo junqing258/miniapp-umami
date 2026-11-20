@@ -14,6 +14,12 @@ export default {
     batchSize: 10,
     batchDelay: 1500,
     debug: false,
+    // 稳定的设备、版本和环境字段仅通过会话属性上报。
+    sessionProperties: true,
+    // 安装级稳定分组；修改文案、权重或实验含义时递增 revision，重新分组。
+    experiments: {
+      home_publish_cta: { enabled: true, revision: 'v1', variants: { A: 50, B: 50 } },
+    },
     // 独立 type: error 协议；版本/环境默认读取微信 miniProgram.version/envVersion。
     errors: { enabled: true },
     // 独立 /api/record 协议；服务端热图开关和采样率仍生效。

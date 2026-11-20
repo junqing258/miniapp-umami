@@ -11,16 +11,89 @@
 - SDK 同时监听 `navigation` 和 `script` 条目：`appLaunch.duration` 上报为 `performance_app_launch`；分包页面的 `route.duration` 上报为 `performance_subpackage_route`；`evaluateScript.duration` 结合 `moduleName` 上报为 `performance_package_script`（主包记为 `main`）。在 `config.umami.subpackages` 中维护 `app.json` 分包根目录与名称的映射。
 - `performance_subpackage_route` 是用户实际等待的进入分包页面总耗时，可能包含下载、注入、初始化和页面切换；自动下载没有稳定的纯下载耗时 API，不能将该指标标记为纯下载时间。
 - 微信小程序 Performance API 目前没有交互时序或布局偏移条目，因而不能据此计算真实 INP、CLS；SDK 不会用点击或 `setData` 耗时冒充这两个指标。
-- 性能事件仅含白名单耗时/分包字段、入口场景和系统信息公共字段；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备唯一标识或业务数据。
+- 性能事件的自定义属性仅含白名单耗时/分包字段和当次入口场景；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备唯一标识或业务数据。
 - 只允许已在 `sanitize.js` 白名单中声明的业务及性能事件和属性。
 - 队列最多 50 条；正常情况下最多合并 10 条、等待 1.5 秒后调用 `/api/batch`，以降低请求数。目标实例不支持批量接口时自动回退为逐条 `/api/send`。
 - 网络和 5xx 最多重试两次，按指数退避并加入随机抖动；不会持久化或保证恰好一次投递。
 
 上线前须在真机验证 HTTPS request 合法域名、User-Agent 接受情况、referrer、语言展示及 UV 口径。当前局域网 endpoint 仅供开发环境联调。
 
+## 小程序发布版本
+
+SDK 使用 `wx.getAccountInfoSync().miniProgram`，通过 `identify` 的会话属性上报：
+
+| 属性 | 来源 | 示例 |
+| --- | --- | --- |
+| `miniapp_version` | `miniProgram.version` | `1.2.3` |
+| `miniapp_env` | `miniProgram.envVersion` | `develop` / `trial` / `release` |
+
+版本信息在内存中缓存；接口缺失或调用失败时省略相应字段，不影响业务。版本字符串去空白并限制为 80 个 Unicode 字符；开发版返回空版本时省略，不使用 `package.json` 版本代替。不会采集 `appId`。`wx_version` 仍表示微信客户端版本，`wx_sdk_version` 仍表示基础库版本。错误协议保留现有的 `release` / `environment` 字段；热图协议未增加这些属性。
+
+`miniapp_version`、`miniapp_env` 仅写入会话属性，供 **筛选器 → 会话属性** 按版本/环境筛选访问，不再重复附加到普通事件的 `data`。事件属性只包含该事件的业务、性能、实验数据及当次入口场景，可在支持事件属性的 **Events → Properties** 中分析。后台支持范围及实际入库仍须在目标实例验收，详见“会话属性”。
+
+## 会话属性
+
+默认开启（`config.umami.sessionProperties: false` 可单独关闭），自动上报以下稳定字段：
+
+- `miniapp_version`、`miniapp_env`：小程序发布版本、运行环境。
+- `wx_brand`、`wx_model`、`wx_system`、`wx_platform`：设备品牌/型号、系统、平台。
+- `wx_version`、`wx_sdk_version`、`wx_language`：微信版本、基础库版本、语言。
+
+仅从 SDK 内部的系统与版本上下文取白名单字段，缺失时省略；全部缺失时不发送。设备、版本和环境不再写入普通事件属性；屏幕/窗口尺寸和像素比也不再作为自定义属性发送，标准 `screen`、`language` 继续按协议上报。入口场景随当次事件记录，UTM 随 URL 记录，业务、性能和实验属性留在对应事件中；这些字段不写入会话属性。没有自定义字段时省略事件的 `data`。
+
+普通 `/api/send` 或 `/api/batch` 成功响应提供非空 `cache` 后，SDK 才通过独立 `/api/send` 发送 `{ type: 'identify', payload: { website, hostname, language, data } }`，请求头复用 `x-umami-cache`。不传 distinct ID、OpenID、设备 ID 或客户端 salt，不解析/伪造令牌，不改变匿名身份策略。只有机器人过滤响应或没有令牌时不会发送 `identify`。
+
+去重以真实服务端令牌为单位：同一令牌只启动一次属性投递，令牌更新后重新附加；这不保证每个后台会话恰好一次，令牌刷新可能产生额外属性写入。`identify` 响应更新令牌时不会循环触发自身；并发的旧响应不会覆盖已更新的普通采集令牌。该请求不会增加 PV 或业务事件，失败不阻塞普通统计。网络/5xx 最多重试两次并保留退避，4xx 不重试；同一令牌耗尽重试后不因每条新事件再次尝试。关闭统计会清空队列及去重状态，重新开启后等待新的真实令牌。
+
+验收时用真机触发访问，核对先收到真实 `cache`，再发送 `type: identify`。在 Umami **筛选器 → 会话属性** 中选择上述字段，验证对应页面访问及事件均能被筛选；注意时间范围与 `test-audience` 标签。HTTP 200 本身不代表入库成功，开发者工具机器人过滤仍适用。历史事件属性不会自动转换为会话属性，不做历史回填。通过异步网关采集时，网关还须同步返回真实会话令牌并转发 `identify` 及缓存头，仅有 `202 accepted` 的网关不足以支持此功能。
+
+## A/B 实验
+
+SDK 提供本地稳定分组、显式曝光和转化事件归因。当前联调配置已开启首页发布按钮文案实验 `home_publish_cta`（revision 为 `v1`，A/B 各 50%）：A 为“发布”，B 为“立即发布”，沿用相同点击事件与跳转。实验开关由 `config.umami.experiments` 控制；关闭时不发送曝光或写入实验存储：
+
+```js
+experiments: {
+  home_publish_cta: {
+    enabled: true,
+    revision: 'v1',
+    variants: { A: 50, B: 50 },
+  },
+},
+```
+
+- 实验 ID、revision、组名只允许 1–50 个英文字母、数字、下划线或连字符。每个实验 2–10 组，权重为正整数，按相对权重随机分配；配置无效则回退原界面。一次配置最多读取 20 个实验。
+- 分组结果以 `umami:experiment:<websiteId>:<experimentId>:<revision>` 为键存入微信本地 storage，只保存组名，不生成或上传用户标识。相同本地存储、网站、实验及 revision 下跨启动保持分组；清理存储、换设备或变更 revision 后重新分组，不能保证跨设备或登录账户一致。旧 revision 的存储不会自动删除。
+- 改变文案、权重或实验含义时递增 revision，并重新启动小程序；同一 revision 不应中途改组名或含义。关闭实验后恢复原按钮与普通业务事件；历史实验数据保留。
+- 存储 API 不可用、读写抛错或 SDK 关闭时不参与实验，回退原界面。运行中 `setEnabled(false)` 会清空本次曝光状态；重新启用后需再次实际展示并上报曝光才能归因。
+
+业务接入使用三个方法：
+
+```js
+const variant = umami.getVariant('home_publish_cta'); // 'A' / 'B'，未参与时为 null；不自动曝光
+// 将 variant 对应界面渲染出来，确认页面可见后调用：
+umami.trackExposure('home_publish_cta');
+// 替换原业务 track 调用，避免重复发送点击：
+umami.trackExperiment('home_publish_cta', 'home_release_entry_click');
+```
+
+`trackExposure` 发送 `experiment_exposure`，每个实验每次 App 启动最多一次（重新启用统计后可以再次曝光），不会增加 PV。示例首页在 `setData` 完成且页面未隐藏时记录曝光；这代表按钮渲染在可见页面上，不是按像素交叉观察确认的可见性。仅分组、打开其他页面或隐藏期间的渲染回调不会记录曝光。
+
+曝光与 `trackExperiment` 业务事件都使用 `exp_<实验ID>_<revision>: <组名>` 格式的事件属性。例如 B 组的曝光和点击均携带 `data: { exp_home_publish_cta_v1: 'B' }`（当次入口场景等事件属性仍可并存），不再发送 `experiment_id`、`experiment_revision`、`variant` 三个独立字段。实验属性由 SDK 生成，业务调用不能覆盖或伪造。未曝光、实验关闭或无效时，`trackExperiment` 仍发送原业务事件，但不带实验归因。普通 `track` 不自动归因，其他事件需显式使用 `trackExperiment`；事件及业务属性仍受 `sanitize.js` 白名单限制，不允许任意事件名或任意实验属性。多个实验分别记录，避免把未展示的分组附加到所有事件。
+
+### 查看结果与验收
+
+现有 `tag: test-audience` 保留为联调受众标签，实验分组通过独立属性记录，不覆盖 Tag。按以下方式验收：
+
+1. 启用示例实验并重新启动，在首页核对文案。检查 `/api/send` 或 `/api/batch` 中有 `experiment_exposure` 并携带 `exp_home_publish_cta_v1: 'A'` 或 `'B'`，版本/环境则通过独立 `identify` 写入会话属性；不能只凭 HTTP 200 判断入库，机器人过滤限制仍适用。
+2. 同一次启动多次进入首页，应只有一次曝光；点击发布应只有一个 `home_release_entry_click`，归因与曝光一致，且正常跳转发布页。再次启动应维持分组并产生新曝光；关闭实验后恢复“发布”，点击不携带实验属性。
+3. 在 Events → Properties 中分别查看曝光和点击事件，选择属性 `exp_home_publish_cta_v1`，按 `A` / `B` 组及相同时间窗口对比，环境使用会话属性过滤（须验证实例支持组合筛选）。revision 改为 `v2` 时属性名变为 `exp_home_publish_cta_v2`，不能混用不同 revision；目标实例若不支持属性筛选，需要升级或通过 API/导出分析。历史记录保持旧格式，不回填或改名。
+4. 当前可直接比较曝光次数和点击次数；重复点击会产生多条点击，点击次数/曝光次数可能超过 100%，不能当作用户转化率。按会话去重需要验证后台能按相同属性过滤并去重，且须接受 Umami 的匿名会话口径。若要“转化人数/曝光人数”，需另行设计稳定身份和去重方案。
+
+本实现不提供远程实验配置、跨设备分流、自动样本量计算、显著性检验或胜出方案发布。实验事件不会自动变成 Tag 全局总览筛选；如需用 Tag 对比整个访问过程，应另外设计其与测试受众标签的组合。历史事件不能补填实验归因，历史会话也不回填版本。本地回归运行 `npm test`，真机入库和后台展示仍需按上述步骤验收。
+
 ## 系统与设备信息
 
-SDK 使用微信 API 获取真实系统信息，随已有 PV、业务和性能事件写入 `payload.data`，不额外增加事件。优先使用 `wx.getDeviceInfo`、`wx.getAppBaseInfo`、`wx.getWindowInfo`；接口不可用或抛错时回退 `wx.getSystemInfoSync`，全部失败时跳过缺失字段，不影响业务。官方已停止维护 `wx.getSystemInfo`，因此不新增对它的调用。
+SDK 使用微信 API 获取真实系统信息，稳定字段仅通过 `identify` 写入会话属性，不重复附加到 PV、业务和性能事件的 `data`，也不增加 PV 或业务事件。优先使用 `wx.getDeviceInfo`、`wx.getAppBaseInfo`、`wx.getWindowInfo`；接口不可用或抛错时回退 `wx.getSystemInfoSync`，全部失败时跳过缺失字段，不影响业务。官方已停止维护 `wx.getSystemInfo`，因此不新增对它的调用。
 
 | 属性 | 微信 API 字段 |
 | --- | --- |
@@ -28,13 +101,10 @@ SDK 使用微信 API 获取真实系统信息，随已有 PV、业务和性能�
 | `wx_system`、`wx_platform` | `system`、`platform` |
 | `wx_version`、`wx_sdk_version` | 微信 `version`、基础库 `SDKVersion` |
 | `wx_language` | `language`，如 `zh_CN` 规范化为 `zh-CN` |
-| `wx_screen_width`、`wx_screen_height` | `screenWidth`、`screenHeight` |
-| `wx_window_width`、`wx_window_height` | `windowWidth`、`windowHeight` |
-| `wx_pixel_ratio` | `pixelRatio` |
 
-字符串去首尾空白且最多 80 个 Unicode 字符；尺寸和像素比只接受有限正数。设备与客户端信息在内存中缓存，窗口信息每次构建事件时更新，以适配旋转/窗口缩放。Umami 标准 `language` 同步使用 API 语言，`screen` 优先采用屏幕尺寸，旧版本缺失时使用窗口尺寸。
+字符串去首尾空白且最多 80 个 Unicode 字符。设备与客户端信息在内存中缓存；窗口信息每次构建普通采集载荷时更新，用于标准 `screen`（优先屏幕尺寸，缺失时使用窗口尺寸，仅接受有限正数）。Umami 标准 `language` 同步使用 API 语言。尺寸和像素比不再生成 `wx_*` 自定义属性。
 
-在 Umami 支持的自定义属性/数据细分中查看 `wx_*` 字段；这些属性不会自动改写依赖请求 User-Agent 的标准浏览器/操作系统分类，也不会解除模拟器的机器人过滤。SDK 不生成设备 ID、不上传系统权限开关、宿主 appId 或系统信息完整对象。
+在 Umami 的“筛选器 → 会话属性”中查看设备与客户端 `wx_*` 字段。事件属性中的 `wx_scene`、`wx_scene_name`、`wx_scene_category` 仍表示当次入口归因。这些属性不会自动改写依赖请求 User-Agent 的标准浏览器/操作系统分类，也不会解除模拟器的机器人过滤。SDK 不生成设备 ID、不上传系统权限开关、宿主 appId 或系统信息完整对象。
 
 ## UTM 渠道统计
 
@@ -51,7 +121,7 @@ pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新�
 - App 的 `onLaunch` / `onShow` 将完整入口参数交给 `setEntryOptions`。入口 `query` 仍只读取 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content`：只接受非空字符串，每项最多 80 个 Unicode 字符，编码后放入页面访问和自定义事件的 `payload.url` 查询串，供 Umami 解析。
 - **显式 UTM 优先**：存在有效的微信顶层数字 `options.scene` 时，按场景补齐缺失的 Source（`wechat`）及 Medium；不覆盖入口已有的有效字段。无效或空值按缺失处理。场景只说明入口类型，无法推断活动名称，因此绝不自动生成 Campaign、Term、Content。
 - 渠道与场景仅保存在内存中，本次前台访问的页面切换、业务和性能事件沿用同一入口；每次 App `onShow` 整体替换，无 UTM 时按新场景重新推导，无有效场景且无 UTM 时清空。不继承旧活动、不持久化，已入队记录保留发送时的入口快照。
-- 页面和事件的 `payload.data` 都会附加 `wx_scene`（数字）、`wx_scene_name`（简短中文说明）、`wx_scene_category`（分类）。它们与同一条记录 URL 中的 UTM 关联，可在数据细分/事件属性中按场景筛选并结合 UTM 分析；增长 UTM 面板本身仍显示 Source、Medium、Campaign 等标准维度。
+- 页面和事件的 `payload.data` 都会附加 `wx_scene`（字符串）、`wx_scene_name`（简短中文说明）、`wx_scene_category`（分类）。它们与同一条记录 URL 中的 UTM 关联，可在数据细分/事件属性中按场景筛选并结合 UTM 分析；增长 UTM 面板本身仍显示 Source、Medium、Campaign 等标准维度。
 - 页面的业务 query 仍全部移除。**顶层 `options.scene` 与二维码业务参数 `options.query.scene` 不同**：后者不会被当成官方场景值或解析成活动，也不上传原文。`referrerInfo`、`shareTicket`、手机号、Token 不上传。自定义小程序码活动需在业务侧定义可信映射后再提供白名单 UTM。
 - `tag: test-audience` 只标记受众，不生成活动名称。不要把手机号、用户标识等个人信息填入 UTM 值。
 - 不增加额外 PV 或业务事件；历史未采集 UTM 的访问不会自动补齐。
@@ -84,7 +154,7 @@ utm_source=wechat&utm_medium=qrcode&utm_campaign=launch_2026&utm_content=poster_
 
 修改入口后，需要从该入口重新进入小程序并产生新访问；原有不含 Content / Term 的记录不会自动补齐。验收时检查 `/api/send` 或 `/api/batch` 中的 `payload.url` 是否包含这两个参数，再选择包含新访问时间的报表范围。若请求参数齐全但报表仍为空，继续检查服务端是否接受并入库；模拟器的机器人过滤限制见上文。
 
-品牌、型号、系统、微信版本等设备信息保存在 `data.wx_*` 自定义属性中，不属于 UTM，也不会填充这五个报表维度。
+品牌、型号、系统、微信版本等设备信息保存在 `identify` 的 `data.wx_*` 会话属性中，不属于 UTM，也不会填充这五个报表维度。
 
 ### 场景分类示例
 
