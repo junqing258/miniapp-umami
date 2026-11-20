@@ -1,12 +1,20 @@
 import Transport from './transport';
 import { startPerformanceObserver } from './performance';
-import { normalizeLanguage, normalizeRoute, sanitizeEvent } from './sanitize';
+import { createEntryContext } from './entry';
+import { normalizeLanguage, normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
 
 let options = null;
 let transport = null;
 let systemInfo = null;
 let launchAt = 0;
 let startupReported = false;
+let entryUtmQuery = '';
+let entryData = {};
+
+function trackingUrl(url) {
+  const route = normalizeRoute(url);
+  return route && entryUtmQuery ? `${route}?${entryUtmQuery}` : route;
+}
 
 function getSystemInfo() {
   if (systemInfo) return systemInfo;
@@ -24,6 +32,7 @@ function enabled() {
 
 function payload(base = {}) {
   const info = getSystemInfo();
+  const data = { ...base.data, ...entryData };
   return {
     website: options.websiteId,
     hostname: options.hostname,
@@ -31,6 +40,7 @@ function payload(base = {}) {
     screen: `${info.windowWidth || info.screenWidth || 0}x${info.windowHeight || info.screenHeight || 0}`,
     ...(typeof options.tag === 'string' && options.tag ? { tag: options.tag.slice(0, 80) } : {}),
     ...base,
+    ...(Object.keys(data).length ? { data } : {}),
   };
 }
 
@@ -46,7 +56,7 @@ function trackEvent(name, properties, route) {
   const currentPage = pages[pages.length - 1];
   send(
     payload({
-      url: normalizeRoute(route || (currentPage && currentPage.route)),
+      url: trackingUrl(route || (currentPage && currentPage.route)),
       name: event.name,
       data: event.data,
     }),
@@ -74,8 +84,19 @@ const umami = {
     startupReported = false;
   },
 
+  setEntryQuery(query) {
+    entryUtmQuery = sanitizeUtmQuery(query);
+    entryData = {};
+  },
+
+  setEntryOptions(entryOptions) {
+    const entry = createEntryContext(entryOptions);
+    entryUtmQuery = entry.query;
+    entryData = entry.data;
+  },
+
   trackPageview({ url, title = '', referrer = '' } = {}) {
-    const route = normalizeRoute(url);
+    const route = trackingUrl(url);
     if (!route) return;
     send(payload({ url: route, title: String(title).slice(0, 120), referrer }));
   },

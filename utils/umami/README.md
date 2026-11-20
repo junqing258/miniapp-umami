@@ -11,9 +11,49 @@
 - SDK 同时监听 `navigation` 和 `script` 条目：`appLaunch.duration` 上报为 `performance_app_launch`；分包页面的 `route.duration` 上报为 `performance_subpackage_route`；`evaluateScript.duration` 结合 `moduleName` 上报为 `performance_package_script`（主包记为 `main`）。在 `config.umami.subpackages` 中维护 `app.json` 分包根目录与名称的映射。
 - `performance_subpackage_route` 是用户实际等待的进入分包页面总耗时，可能包含下载、注入、初始化和页面切换；自动下载没有稳定的纯下载耗时 API，不能将该指标标记为纯下载时间。
 - 微信小程序 Performance API 目前没有交互时序或布局偏移条目，因而不能据此计算真实 INP、CLS；SDK 不会用点击或 `setData` 耗时冒充这两个指标。
-- 性能事件只含 `duration_ms`，页面路由使用现有 Umami `url` 字段，不采集请求地址、设备标识或业务数据。
+- 性能事件仅含白名单耗时/分包字段及入口场景公共字段；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备标识或业务数据。
 - 只允许已在 `sanitize.js` 白名单中声明的业务及性能事件和属性。
 - 队列最多 50 条；正常情况下最多合并 10 条、等待 1.5 秒后调用 `/api/batch`，以降低请求数。目标实例不支持批量接口时自动回退为逐条 `/api/send`。
 - 网络和 5xx 最多重试两次，按指数退避并加入随机抖动；不会持久化或保证恰好一次投递。
 
 上线前须在真机验证 HTTPS request 合法域名、User-Agent 接受情况、referrer、语言展示及 UV 口径。当前局域网 endpoint 仅供开发环境联调。
+
+## UTM 渠道统计
+
+在推广二维码或分享入口的小程序页面路径中携带渠道参数，例如：
+
+```text
+pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新活动
+```
+
+开发者工具中可将启动页面设为 `pages/home/index`、场景值设为 `1047`、启动参数设为 `utm_campaign=模拟拉新活动`；SDK 会补齐 `utm_source=wechat`、`utm_medium=qrcode`。重新编译后检查请求与 Umami 的 **增长 → UTM**。构造实际二维码/分享 URL 时应将中文活动名 URL 编码一次；填写开发者工具的原始启动参数时可直接使用中文。
+
+目标实例可能将开发者工具 User-Agent 识别为机器人：`/api/send` 返回 `200` 和 `{"beep":"boop"}` 表示跳过入库，批量接口的 `processed` 也不保证已入库。应结合实际报表或真机验收；本次联调记录见 `docs/umami-verification.md`。
+
+- App 的 `onLaunch` / `onShow` 将完整入口参数交给 `setEntryOptions`。入口 `query` 仍只读取 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content`：只接受非空字符串，每项最多 80 个 Unicode 字符，编码后放入页面访问和自定义事件的 `payload.url` 查询串，供 Umami 解析。
+- **显式 UTM 优先**：存在有效的微信顶层数字 `options.scene` 时，按场景补齐缺失的 Source（`wechat`）及 Medium；不覆盖入口已有的有效字段。无效或空值按缺失处理。场景只说明入口类型，无法推断活动名称，因此绝不自动生成 Campaign、Term、Content。
+- 渠道与场景仅保存在内存中，本次前台访问的页面切换、业务和性能事件沿用同一入口；每次 App `onShow` 整体替换，无 UTM 时按新场景重新推导，无有效场景且无 UTM 时清空。不继承旧活动、不持久化，已入队记录保留发送时的入口快照。
+- 页面和事件的 `payload.data` 都会附加 `wx_scene`（数字）、`wx_scene_name`（简短中文说明）、`wx_scene_category`（分类）。它们与同一条记录 URL 中的 UTM 关联，可在数据细分/事件属性中按场景筛选并结合 UTM 分析；增长 UTM 面板本身仍显示 Source、Medium、Campaign 等标准维度。
+- 页面的业务 query 仍全部移除。**顶层 `options.scene` 与二维码业务参数 `options.query.scene` 不同**：后者不会被当成官方场景值或解析成活动，也不上传原文。`referrerInfo`、`shareTicket`、手机号、Token 不上传。自定义小程序码活动需在业务侧定义可信映射后再提供白名单 UTM。
+- `tag: test-audience` 只标记受众，不生成活动名称。不要把手机号、用户标识等个人信息填入 UTM 值。
+- 不增加额外 PV 或业务事件；历史未采集 UTM 的访问不会自动补齐。
+
+### 场景分类示例
+
+场景值以[微信官方场景表](https://developers.weixin.qq.com/miniprogram/dev/reference/scene-list.html)为准；分类名是本项目的渠道约定，映射位于 `entry.js`。
+
+| 微信场景值 | 入口 | 缺省 Medium |
+| --- | --- | --- |
+| `1007` / `1008` | 单聊 / 群聊小程序卡片 | `chat_share` / `group_share` |
+| `1011`–`1013`、`1047`–`1049` | 二维码 / 小程序码 | `qrcode` |
+| `1005`、`1006`、`1053` | 搜索结果 | `search` |
+| `1035`、`1058` | 公众号菜单 / 文章 | `official_account` |
+| `1045`、`1046`、`1067`、`1200` | 广告入口 | `ad` |
+| `1001`、`1089`、`1090` | 最近使用 | `recent` |
+| `1030`、`1101` | 自动化测试 / 远程调试 | `test` |
+| `1065` / `1194` | URL Scheme / URL Link | `url_scheme` / `url_link` |
+| 有效但映射未收录的四位整数 | 保留 `wx_scene`，名称为“未分类场景” | `other` |
+
+未提供合法顶层数字场景时不生成场景数据，也不推导 Source / Medium。这里只维护常用分类，不保证覆盖官方所有场景；新增场景不会因映射缺失中断业务。
+
+本地回归检查：`npm run test:umami`。

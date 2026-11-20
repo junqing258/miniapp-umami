@@ -7,6 +7,7 @@
 | 采集协议 | 待验证 | `/api/send` 的实例版本、页面事件和自定义事件的响应状态及后台展示 |
 | 请求环境 | 待验证 | 真实小程序 User-Agent 是否被接受；Mock 开启时完整采集 URL 是否透传 |
 | 页面来源 | 待验证 | 首次进入空来源、站内跳转 absolute referrer 的路径和后台归类 |
+| UTM 渠道与场景 | 部分通过 | 单测和模拟器请求已验证；历史 UTM 诊断数据报表可见。新增场景关联请求仍被开发者工具 User-Agent 过滤，待真机验证入库；见下文 |
 | 语言 | 待验证 | `zh_CN` 规范化为 `zh-CN` 后的后台展示 |
 | 登录契约 | 待验证 | HTTP 失败、HTTP 成功但业务失败、业务成功三种真实响应；仅保存 Token 后上报 |
 | UV 口径 | 待验证 | 两台真机同 WiFi 同时访问的 UV/会话变化、设备/微信版本/UA（如可取）；再以不同网络对照 |
@@ -15,3 +16,21 @@
 联调时临时将 `config.js` 的 `umami.enabled` 设为 `true`。不要将当前局域网 HTTP endpoint 作为正式发布设置，也不要将页面回跳参数、搜索原文或任意业务身份信息加入事件属性。
 
 当前联调配置通过 `umami.tag: 'test-audience'` 标注测试受众。打开 Umami 网站报表，选择 **Filter → Tag → `test-audience`**，即可只查看该受众的页面访问、事件和跳出率。Tag 随既有请求发送，不会生成额外事件或改变跳出率。正式发布前应移除该标签或替换为正式环境标签。
+
+## 2026-11-20 UTM 联调结果
+
+- 本地 `npm run test:umami` 的 3 组检查通过，覆盖真实 App / 页面钩子、冷启动与热入口替换、直接入口清空、内部导航及事件渠道传递、编码与长度限制、敏感 query 过滤和 PV 数量。
+- 开发者工具以 `utm_source=wechat_devtools&utm_medium=debug&utm_campaign=utm-verification-20261120` 编译，实际 `/api/batch` 请求的 `payload.url` 携带 UTM，响应为 `200`、`processed: 6`、`errors: 0`。但该响应不能证明实际入库。
+- 从模拟器直接调用 `/api/send` 得到 `200` 和 `{"beep":"boop"}`。Umami 官方 `src/app/api/send/route.ts` 中该响应对应 `isbot(userAgent)` 命中的机器人过滤分支，会在写入事件前返回。因此开发者工具流量未出现在报表；不是 UTM 参数被 SDK 再次删除。
+- 使用浏览器同源请求发送带 `test-audience` 标签的独立诊断 PV，单条和批量接口分别以 `browser_debug`、`browser_batch` 为来源，两者均已显示在目标实例的增长 UTM 报表中，活动为 `utm-verification-20261120`，媒介为 `debug`。这些记录是联调数据。
+- 真机微信 User-Agent 接受情况、完整渠道生命周期仍待真机验收。若专用开发实例需要统计模拟器流量，可在服务端评估配置 `DISABLE_BOT_CHECK=true`；本次未修改服务端设置，SDK 不伪造 User-Agent。
+
+## 2026-11-20 场景关联补充验收
+
+- 再次查看目标网站最近 24 小时的增长 UTM 报表：活动 `utm-verification-20261120` 共 4 次浏览；Medium 为 `debug`，Source 为 `wechat_devtools`（2）、`browser_debug`（1）、`browser_batch`（1）。这是此前的诊断数据，不能视为本次场景关联已入库。
+- 修改前，当前模拟器确实调用了 `/api/batch`，但页面 URL 没有 UTM：该次启动没有渠道参数，旧代码也没有读取顶层数字场景。
+- 已接入 App `onLaunch` / `onShow` 的完整入口参数：有效显式 UTM 优先，按场景补齐 Source / Medium；页面访问、业务及性能事件附加 `wx_scene`、`wx_scene_name`、`wx_scene_category`。Campaign 仍必须由入口指定，不根据场景猜测。
+- 使用开发者工具将首页启动场景设为 `1047`、原始启动参数设为 `utm_campaign=模拟拉新活动`。实际批量请求包含 `utm_source=wechat&utm_medium=qrcode&utm_campaign=%E6%A8%A1%E6%8B%9F%E6%8B%89%E6%96%B0%E6%B4%BB%E5%8A%A8`，页面访问和性能事件均包含 `wx_scene: 1047`、`wx_scene_name: 扫描小程序码`、`wx_scene_category: qrcode`。服务端返回 `200`、`processed: 5`、`errors: 0`。
+- 单独发送一条 `tag: test-audience` 的 `utm_scene_diagnostic` 诊断事件（不增加 PV），原生 `wx.request` 的 `/api/send` 响应仍为 `200`、`{"beep":"boop"}`。刷新增长报表仍只有此前的 4 次访问：**本次请求已上传，但未验证入库，当前证据符合机器人过滤**。没有伪造 User-Agent，也未通过浏览器补造场景数据来代替模拟器验收。
+- `npm test` 的 13 个单元测试通过（含 8 个 SDK 测试）；`npm run test:e2e` 的 4 个模拟器用例通过；新增/修改的 SDK 代码及测试代码 ESLint 通过。覆盖显式渠道优先、场景推导、内部导航和事件关联、冷热入口替换、未知/无效场景、二维码业务 `query.scene` 不误采集、敏感字段过滤及不增加 PV。
+- 真机验收：扫描带明确活动映射的二维码/小程序码或从分享卡片进入，确认同一条 URL 的 UTM、`data.wx_scene` 及事件属性；在增长 UTM 和事件/数据细分页面检查真实入库与关联。历史记录不回填、不改名。

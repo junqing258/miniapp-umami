@@ -10,8 +10,9 @@ if (config.isMock) {
 }
 
 App({
-  onLaunch() {
+  onLaunch(launchOptions = {}) {
     umami.init(config.umami);
+    umami.setEntryOptions(launchOptions);
     umami.markLaunch();
     const updateManager = wx.getUpdateManager();
 
@@ -33,6 +34,9 @@ App({
 
     this.getUnreadNum();
     this.connect();
+  },
+  onShow(entryOptions = {}) {
+    umami.setEntryOptions(entryOptions);
   },
   onHide() {
     umami.flush();

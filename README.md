@@ -50,13 +50,19 @@ npm install
 
 打开[微信开发者工具](https://mp.weixin.qq.com/debug/wxadoc/dev/devtools/download.html)，导入整个项目，构建 npm 包，就可以预览示例了。
 
+## 自动化测试
+
+已接入官方 `miniprogram-automator` 和 Node.js 测试运行器。`npm test` 运行单元测试；在已登录并开启服务端口的微信开发者工具中构建 npm 后，执行 `npm run test:e2e` 运行模拟器测试。E2E 使用临时项目副本，自动开启 Mock、关闭统计上报，并在失败时保存截图。
+
+环境配置、用例扩展和 CI 说明见 [自动化测试文档](docs/automation-testing.md)。
+
 ## Umami 统计
 
-统计 SDK 位于 `utils/umami/`，由 `app.js` 将根目录 `config.js` 的 `umami` 配置注入。默认关闭，避免局域网联调数据或 Mock 数据进入报表。开启前需要填写可被小程序访问的 HTTPS `/api/send` 地址并配置微信 request 合法域名。
+统计 SDK 位于 `utils/umami/`，由 `app.js` 将根目录 `config.js` 的 `umami` 配置注入。当前局域网联调配置已开启，并使用 `test-audience` 标签标识测试数据；E2E 自动化测试副本会关闭上报。正式环境需要填写可被小程序访问的 HTTPS `/api/send` 地址并配置微信 request 合法域名。
 
 高并发场景的削峰、限流与可靠转发方案见 [Umami 采集网关说明](docs/umami-ingestion-gateway.md)。
 
-页面通过 `definePage` 在每次 `onShow` 自动统计；不要在业务页额外发送页面访问。已接入的业务事件是登录成功、搜索提交、发布点击、保存草稿点击和首页主动刷新。SDK 仅发送白名单属性，不会发送手机号、验证码、密码、Token、搜索原文、聊天内容或路由 query。
+页面通过 `definePage` 在每次 `onShow` 自动统计；不要在业务页额外发送页面访问。已接入的业务事件是登录成功、搜索提交、发布点击、保存草稿点击和首页主动刷新。SDK 仅发送白名单属性、入口 UTM 和微信顶层数字场景值（含分类），不会发送手机号、验证码、密码、Token、搜索原文、聊天内容或其他路由 query。显式 UTM 优先，缺失的来源/媒介按场景补齐，活动名由推广入口指定。配置及验证方法见 [SDK 说明](utils/umami/README.md#utm-渠道统计)。
 
 当前实现的上线前验收仍须在开发者工具和两台真机完成：确认目标 Umami 版本与 User-Agent 接受情况、绝对 referrer 和语言展示、Mock 对完整采集 URL 的透传、同 WiFi/不同网络下的 UV 口径，以及真实登录 API 的业务成功响应契约。局域网 HTTP 地址只可用于临时调试，不是正式发布配置。
 

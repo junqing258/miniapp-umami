@@ -17,6 +17,24 @@ const EVENT_PROPERTIES = {
 
 const MAX_STRING_LENGTH = 80;
 const MAX_DATA_LENGTH = 512;
+const UTM_KEYS = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content'];
+
+export function sanitizeUtmQuery(query) {
+  if (!query || typeof query !== 'object' || Array.isArray(query)) return '';
+
+  const parameters = [];
+  UTM_KEYS.forEach((key) => {
+    if (!Object.prototype.hasOwnProperty.call(query, key) || typeof query[key] !== 'string') return;
+    const value = Array.from(query[key].trim()).slice(0, MAX_STRING_LENGTH).join('');
+    if (!value) return;
+    try {
+      parameters.push(`${key}=${encodeURIComponent(value)}`);
+    } catch (error) {
+      // Malformed Unicode in an entry parameter must not interrupt app startup.
+    }
+  });
+  return parameters.join('&');
+}
 
 function sanitizeValue(value) {
   if (typeof value === 'string') return value.slice(0, MAX_STRING_LENGTH);

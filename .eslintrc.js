@@ -24,6 +24,12 @@ module.exports = {
     requireMiniProgram: true,
   },
   extends: ['eslint-config-airbnb-base', 'eslint-config-prettier'],
+  overrides: [
+    {
+      files: ['tests/**/*.cjs'],
+      parserOptions: { ecmaVersion: 2022 },
+    },
+  ],
   plugins: ['prettier', 'import'],
   // extends: 'eslint:recommended',
   rules: {

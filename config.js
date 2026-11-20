@@ -2,7 +2,7 @@ export default {
   isMock: true,
   baseUrl: '',
   umami: {
-    // Keep disabled until the local endpoint, privacy notice, and real-device checks are complete.
+    // Enabled for local testing; production requires HTTPS, privacy review, and real-device checks.
     enabled: true,
     endpoint: 'http://192.168.31.120:3002/api/send',
     websiteId: '543538c5-b3bb-4858-b8ac-850cad751578',

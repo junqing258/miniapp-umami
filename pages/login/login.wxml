@@ -5,12 +5,14 @@
     <view class="login__input">
       <view class="login__password" wx:if="{{isPasswordLogin}}">
         <t-input
+          id="login-account"
           label="账号"
           placeholder="请输入手机号/邮箱"
           value="{{passwordInfo.account}}"
           bindchange="onAccountChange"
         ></t-input>
         <t-input
+          id="login-password"
           label="密码"
           placeholder="请输入密码"
           type="password"
@@ -55,7 +57,15 @@
   <view class="login__others">
     <text class="login__others-label">其他方式</text>
     <view class="login__others-buttons">
-      <t-button class="button" variant="outline" theme="default" size="medium" shape="round" bindtap="changeLogin">
+      <t-button
+        id="login-mode-toggle"
+        class="button"
+        variant="outline"
+        theme="default"
+        size="medium"
+        shape="round"
+        bindtap="changeLogin"
+      >
         {{isPasswordLogin ? '验证码登录' : '密码登录' }}
       </t-button>
       <t-button

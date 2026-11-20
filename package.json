@@ -3,7 +3,12 @@
   "version": "0.0.2",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test:umami": "node --experimental-vm-modules --test tests/umami.test.cjs",
+    "test": "npm run test:unit",
+    "test:unit": "node --experimental-vm-modules --test tests/*.test.cjs",
+    "test:e2e": "node --test --test-concurrency=1 tests/e2e/*.test.cjs",
+    "test:all": "npm run test:unit && npm run test:e2e",
+    "lint:tests": "eslint --ext .cjs tests",
     "lint": "npx eslint ./ --no-eslintrc -c ./.eslintrc.js",
     "lint:fix": "npm run lint:fix-eslint && npm run lint:fix-prettier",
     "lint:fix-eslint": "eslint --ext .js,.ts ./ --max-warnings 0 --ignore-path .gitignore --ignore-path .eslintignore --fix",
@@ -28,6 +33,7 @@
     "eslint-plugin-prettier": "^5.0.0",
     "husky": "^8.0.3",
     "lint-staged": "^14.0.1",
+    "miniprogram-automator": "0.13.0",
     "prettier": "^3.0.2"
   },
   "lint-staged": {

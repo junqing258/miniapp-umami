@@ -28,3 +28,14 @@ jobs:
         shell: bash
       - name: lint 检查
         run: npm run lint
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/setup-node@v2
+        with:
+          node-version: 18
+          cache: npm
+      - run: npm ci
+      - run: npm run lint:tests
+      - run: npm test

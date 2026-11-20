@@ -1,7 +1,10 @@
 {
   "description": "项目配置文件，详见文档：https://developers.weixin.qq.com/miniprogram/dev/devtools/projectconfig.html",
   "packOptions": {
-    "ignore": [],
+    "ignore": [
+      { "type": "folder", "value": "tests" },
+      { "type": "folder", "value": "artifacts" }
+    ],
     "include": []
   },
   "setting": {
@@ -41,9 +44,7 @@
       "outputPath": ""
     },
     "disableUseStrict": false,
-    "useCompilerPlugins": [
-      "less"
-    ],
+    "useCompilerPlugins": ["less"],
     "condition": false,
     "ignoreUploadUnusedFiles": true,
     "localPlugins": false,

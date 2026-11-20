@@ -78,7 +78,7 @@ definePage({
 | --- | --- |
 | `website` | 配置的 websiteId |
 | `hostname` | 固定逻辑 hostname |
-| `url` | 标准化页面路由，默认不含 query |
+| `url` | 标准化页面路由，仅附加入口白名单 UTM，其他 query 移除 |
 | `title` | 显式页面标题映射 |
 | `referrer` | `https://<固定hostname><上一个页面路由>`，首次进入为空 |
 | `language` | 微信系统信息中的语言；将下划线分隔规范化为连字符，如 `zh_CN` → `zh-CN`，验证目标实例展示 |
@@ -92,7 +92,7 @@ definePage({
 
 首期采用独立逐条上报，不依赖实例可能尚不支持的批量接口。
 
-`url` 保留纯路径，`referrer` 使用与 `hostname` 配套的绝对 URL；其中 HTTPS origin 是页面的逻辑来源标识，不是采集服务器地址，也不意味着实际存在对应网页。不能仅凭两者字符串形式不同判定协议错误：当前 Umami 主分支会基于事件域名解析相对 referrer，并去除站内来源的 referrer domain，但目标实例版本尚未验证。为兼容版本差异，统一发送绝对 referrer，并在步骤 1 检查路径保留及站内来源归类；不应期待站内导航显示成外部引荐来源。
+`url` 保留标准化路径及入口白名单 UTM，`referrer` 使用与 `hostname` 配套的绝对 URL；其中 HTTPS origin 是页面的逻辑来源标识，不是采集服务器地址，也不意味着实际存在对应网页。不能仅凭两者字符串形式不同判定协议错误：当前 Umami 主分支会基于事件域名解析相对 referrer，并去除站内来源的 referrer domain，但目标实例版本尚未验证。为兼容版本差异，统一发送绝对 referrer，并在步骤 1 检查路径保留及站内来源归类；不应期待站内导航显示成外部引荐来源。
 
 ## 页面与事件口径
 
@@ -103,9 +103,9 @@ definePage({
 - 同一路由再次真实展示可以再次计数，仅防止同一次生命周期被多处重复采集。
 - 首次进入 `referrer` 为空；前后台恢复时不把当前页写成自己的来源。
 - 使用页面实例及展示顺序维护来源，覆盖返回、重定向和 `reLaunch`，避免只靠导航 API 拦截推断访问。
-- 不上传 query、聊天对象信息或页面完整 data；未来确需 query 时逐字段白名单放行。
+- 只允许入口 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content` 白名单 query，不上传其他 query、聊天对象信息或页面完整 data。入口归因生命周期见 `utils/umami/README.md`。
 - 首页回跳参数 `oper` 可作为首个白名单候选，仅允许 `release`、`save`，用于区分发布或草稿操作后的首页访问。首期默认仍不上传；若启用，优先作为页面事件属性并验证实例支持，不在属性不可用时额外发送一次 PV。该参数仅表达回跳来源，不证明业务成功。
-- App 启动场景可作为经过过滤的自定义事件属性，不伪造浏览器 referrer 或 UTM 来源。
+- App 顶层数字启动场景作为页面访问和事件的公共属性上报；显式 UTM 优先，缺失的 Source / Medium 按真实场景映射为 `wechat` 及入口分类，Campaign 仍由入口指定。不采集业务 `query.scene` 原文，不伪造浏览器 referrer。具体分类及生命周期见 `utils/umami/README.md`。
 
 ### 首批业务事件
 
