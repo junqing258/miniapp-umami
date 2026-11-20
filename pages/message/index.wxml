@@ -1,13 +1,15 @@
+<view class="umami-heatmap-root">
 <wxs src="./index.wxs" module="utils" />
 
 <nav nav-type="title" title-text="全部消息"></nav>
-<scroll-view
+<scroll-view id="umami-scroll-surface" capture-bind:tap="__umamiHeatmapSurfaceTap" bindscroll="__umamiHeatmapSurfaceScroll"
   class="message-list"
   scroll-y
   refresher-enabled
   refresher-triggered="{{ loading }}"
   bindrefresherrefresh="getMessageList"
 >
+  <view class="umami-heatmap-scroll-content">
   <t-cell
     wx:for="{{ messageList }}"
     wx:key="index"
@@ -22,4 +24,7 @@
   >
     <t-badge slot="right-icon" count="{{ utils.computeUnreadNum(item.messages) }}" class="wrapper" />
   </t-cell>
+  </view>
 </scroll-view>
+
+</view>

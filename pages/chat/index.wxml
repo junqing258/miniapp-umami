@@ -1,10 +1,11 @@
+<view class="umami-heatmap-root">
 <wxs src="./index.wxs" module="utils" />
 
 <t-navbar class="nav-bar" title="{{ name }}" left-arrow />
 
 <view class="chat-container">
-  <scroll-view class="content" scroll-y scroll-into-view="{{ anchor }}">
-    <view class="messages">
+  <scroll-view id="umami-scroll-surface" capture-bind:tap="__umamiHeatmapSurfaceTap" bindscroll="__umamiHeatmapSurfaceScroll" class="content" scroll-y scroll-into-view="{{ anchor }}">
+    <view class="messages umami-heatmap-scroll-content">
       <block wx:for="{{ messages }}" wx:key="index">
         <view wx:if="{{ index === 0 || item.time - messages[index - 1].time > 120000 }}" class="time" >
           {{ utils.formatTime(item.time) }}
@@ -55,4 +56,6 @@
     />
   </view>
   <t-button class="send" theme="primary" shape="round" disabled="{{ !input }}" bind:tap="sendMessage">发送</t-button>
+</view>
+
 </view>

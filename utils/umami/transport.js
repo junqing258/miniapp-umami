@@ -15,12 +15,15 @@ function getBatchEndpoint(endpoint) {
 }
 
 export default class Transport {
-  constructor({ endpoint, batchEndpoint, batchSize, batchDelay, debug = false }) {
+  constructor({ endpoint, batchEndpoint, batchSize, batchDelay, debug = false, getHeaders, onResponse }) {
     this.endpoint = endpoint;
     this.batchEndpoint = batchEndpoint || getBatchEndpoint(endpoint);
     this.batchSize = positiveInteger(batchSize, DEFAULT_BATCH_SIZE);
     this.batchDelay = positiveInteger(batchDelay, DEFAULT_BATCH_DELAY);
     this.debug = debug;
+    this.getHeaders = getHeaders;
+    this.onResponse = onResponse;
+    this.sessionCache = '';
     this.queue = [];
     this.sending = false;
     this.inFlightCount = 0;
@@ -57,7 +60,12 @@ export default class Transport {
     const items = this.queue.slice(0, this.batchSize);
     this.inFlightCount = items.length;
     if (items.length > 1 && this.batchEndpoint) {
-      this.request(this.batchEndpoint, items, items.map((item) => item.body), true);
+      this.request(
+        this.batchEndpoint,
+        items,
+        items.map((item) => item.body),
+        true,
+      );
       return;
     }
     this.request(this.endpoint, [items[0]], items[0].body, false);
@@ -70,9 +78,16 @@ export default class Transport {
       data,
       dataType: 'json',
       timeout: DEFAULT_TIMEOUT,
-      header: { 'content-type': 'application/json' },
+      header: {
+        'content-type': 'application/json',
+        ...(this.sessionCache ? { 'x-umami-cache': this.sessionCache } : {}),
+        ...(this.getHeaders ? this.getHeaders() : {}),
+      },
       success: (response) => {
+        if (!this.enabled) return;
         if (response.statusCode >= 200 && response.statusCode < 300) {
+          if (response.data && typeof response.data.cache === 'string') this.sessionCache = response.data.cache;
+          if (this.onResponse) this.onResponse(response.data);
           this.completeSuccess(items, response.data, isBatch);
         } else if (isBatch && (response.statusCode === 404 || response.statusCode === 405)) {
           this.batchEndpoint = '';
@@ -97,7 +112,9 @@ export default class Transport {
     }
 
     const failed = new Set(
-      (response.details || []).map((detail) => Number(detail.index)).filter((index) => index >= 0 && index < items.length),
+      (response.details || [])
+        .map((detail) => Number(detail.index))
+        .filter((index) => index >= 0 && index < items.length),
     );
     if (!failed.size) {
       this.retryOrDrop(items, true);
@@ -135,10 +152,13 @@ export default class Transport {
 
   scheduleDrain(delay) {
     if (!this.enabled || this.sending || !this.queue.length || this.timer) return;
-    this.timer = setTimeout(() => {
-      this.timer = null;
-      this.drain();
-    }, Math.max(0, delay));
+    this.timer = setTimeout(
+      () => {
+        this.timer = null;
+        this.drain();
+      },
+      Math.max(0, delay),
+    );
   }
 
   clearTimer() {
@@ -153,7 +173,10 @@ export default class Transport {
 
   setEnabled(enabled) {
     this.enabled = enabled;
-    if (!enabled) this.clear();
+    if (!enabled) {
+      this.clear();
+      this.sessionCache = '';
+    }
   }
 
   log(message) {

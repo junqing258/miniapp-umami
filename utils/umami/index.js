@@ -3,9 +3,11 @@ import { startPerformanceObserver } from './performance';
 import { createEntryContext } from './entry';
 import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
 import { createSystemContext } from './system';
+import Heatmap from './heatmap';
 
 let options = null;
 let transport = null;
+let heatmap = null;
 const getSystemContext = createSystemContext();
 let launchAt = 0;
 let startupReported = false;
@@ -41,6 +43,7 @@ function send(eventPayload) {
 }
 
 function trackEvent(name, properties, route) {
+  if (!enabled()) return;
   const event = sanitizeEvent(name, properties);
   if (!event) return;
   const pages = getCurrentPages();
@@ -66,7 +69,25 @@ const umami = {
       return;
     }
     options = nextOptions;
-    transport = new Transport(nextOptions);
+    transport = new Transport({
+      ...nextOptions,
+      onResponse: () => {
+        if (heatmap) heatmap.flush();
+      },
+    });
+    if (nextOptions.heatmap && nextOptions.heatmap.enabled) {
+      heatmap = new Heatmap(
+        {
+          ...nextOptions,
+          onHeatmapReady: () => {
+            getCurrentPages().forEach((page) => {
+              if (page.__umamiHeatmapStart) page.__umamiHeatmapStart();
+            });
+          },
+        },
+        transport,
+      );
+    }
     startPerformanceObserver(trackEvent, nextOptions.subpackages);
   },
 
@@ -87,6 +108,7 @@ const umami = {
   },
 
   trackPageview({ url, title = '', referrer = '' } = {}) {
+    if (!enabled()) return;
     const route = trackingUrl(url);
     if (!route) return;
     send(payload({ url: route, title: String(title).slice(0, 120), referrer }));
@@ -111,10 +133,24 @@ const umami = {
 
   flush() {
     if (transport) transport.flush();
+    if (heatmap) heatmap.flush();
+  },
+
+  trackHeatmap(type, route, metrics, point) {
+    if (enabled() && heatmap) heatmap.track(type, route, metrics, point);
+  },
+
+  isHeatmapEnabled() {
+    return Boolean(enabled() && heatmap && heatmap.collecting);
+  },
+
+  getHeatmapStatus() {
+    return heatmap ? heatmap.status() : { collecting: false, hasSession: false, queued: 0 };
   },
 
   setEnabled(value) {
     if (transport) transport.setEnabled(Boolean(value));
+    if (heatmap) heatmap.setEnabled(Boolean(value));
     if (options) options.enabled = Boolean(value);
   },
 };

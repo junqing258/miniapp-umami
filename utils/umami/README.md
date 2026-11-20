@@ -75,3 +75,19 @@ pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新�
 未提供合法顶层数字场景时不生成场景数据，也不推导 Source / Medium。这里只维护常用分类，不保证覆盖官方所有场景；新增场景不会因映射缺失中断业务。
 
 本地回归检查：`npm run test:umami`。
+
+## 行为热图（2026-11-20）
+
+`config.umami.heatmap.enabled: true` 启用小程序适配。启动后读取 `/api/websites/{websiteId}/recorder`，仅在服务端 `enabled`、`heatmapEnabled` 均为真且本次启动命中 `heatmapSampleRate` 时采集。采样按 App 启动决定，变更服务端设置后需重新进入小程序。
+
+热图使用独立协议：`POST /api/record`，请求体为 `{ type: 'heatmap', payload: { website, events } }`。普通 `/api/send` 或 `/api/batch` 返回的 `cache` 令牌仅保存在内存，并以 `x-umami-cache` 请求头复用；没有有效服务端令牌时不发送热图。热图最多缓冲 50 条，每批最多 20 条、等待 2 秒；网络/5xx 最多重试两次，页面隐藏或 App 切后台时尽力刷新队列。关闭 SDK 会清空队列和令牌。自定义网关需要分别转发 record/config 接口，可用 `heatmap.endpoint`、`heatmap.configEndpoint` 指定完整地址。
+
+- 页面根节点用 `capture-bind:tap` 读取真实触摸点；不阻止业务事件。只保留坐标、视口/页面尺寸、时间和去掉 query/hash 的路由，不读取元素文字、dataset、表单值或聊天内容。仅有 `detail` 的组件语义事件不构造虚假的点击位置；自定义 TabBar 独立组件的点击未覆盖。
+- 普通页面通过 `onPageScroll` 每 400ms 查询几何信息、记录新增的最大阅读深度。`scrollPct` 表示 `(scrollTop + viewportH) / pageH`，不是滑动距离占比。
+- 消息/聊天的原生 `scroll-view` 单独测量内容和滚动偏移，点击与深度写入 `/pages/message/index/heatmap-scroll`、`/pages/chat/index/heatmap-scroll`，避免与外层页面坐标混用。
+- 首页和“我的”使用组件/CSS 内部滚动，当前只统计可见视口的点击，不将这些点击解释为长页面上的内容位置，也不上报无法测得的内部滚动深度。其他内部滚动容器接入时需要独立适配，不能直接用 Page 的 `onPageScroll` 替代。
+- `umami.getHeatmapStatus()` / 页面方法 `__umamiHeatmapStatus()` 只返回 `collecting`、`hasSession`、`queued`，供联调诊断，不返回令牌。
+
+当前部署的 Umami 热图背景采用“网站域名 + 路由”的 iframe，例如 `https://miniapp.xiaoanai.top/pages/home/index`。小程序没有对应网页，因此采集成功并不等于可以展示真实页面背景；需在远程部署适配静态页面/截图背景，并按视口宽度、路由、页面版本及滚动容器匹配。SDK 不自动截屏或上传页面内容。历史未采集的坐标不能回填。
+
+真机联调及当前限制见 `docs/umami-verification.md`。热图专项测试位于 `tests/heatmap.test.cjs`，可运行 `npm test`。
