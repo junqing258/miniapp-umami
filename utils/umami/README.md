@@ -11,12 +11,30 @@
 - SDK 同时监听 `navigation` 和 `script` 条目：`appLaunch.duration` 上报为 `performance_app_launch`；分包页面的 `route.duration` 上报为 `performance_subpackage_route`；`evaluateScript.duration` 结合 `moduleName` 上报为 `performance_package_script`（主包记为 `main`）。在 `config.umami.subpackages` 中维护 `app.json` 分包根目录与名称的映射。
 - `performance_subpackage_route` 是用户实际等待的进入分包页面总耗时，可能包含下载、注入、初始化和页面切换；自动下载没有稳定的纯下载耗时 API，不能将该指标标记为纯下载时间。
 - 微信小程序 Performance API 目前没有交互时序或布局偏移条目，因而不能据此计算真实 INP、CLS；SDK 不会用点击或 `setData` 耗时冒充这两个指标。
-- 性能事件仅含白名单耗时/分包字段及入口场景公共字段；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备标识或业务数据。
+- 性能事件仅含白名单耗时/分包字段、入口场景和系统信息公共字段；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备唯一标识或业务数据。
 - 只允许已在 `sanitize.js` 白名单中声明的业务及性能事件和属性。
 - 队列最多 50 条；正常情况下最多合并 10 条、等待 1.5 秒后调用 `/api/batch`，以降低请求数。目标实例不支持批量接口时自动回退为逐条 `/api/send`。
 - 网络和 5xx 最多重试两次，按指数退避并加入随机抖动；不会持久化或保证恰好一次投递。
 
 上线前须在真机验证 HTTPS request 合法域名、User-Agent 接受情况、referrer、语言展示及 UV 口径。当前局域网 endpoint 仅供开发环境联调。
+
+## 系统与设备信息
+
+SDK 使用微信 API 获取真实系统信息，随已有 PV、业务和性能事件写入 `payload.data`，不额外增加事件。优先使用 `wx.getDeviceInfo`、`wx.getAppBaseInfo`、`wx.getWindowInfo`；接口不可用或抛错时回退 `wx.getSystemInfoSync`，全部失败时跳过缺失字段，不影响业务。官方已停止维护 `wx.getSystemInfo`，因此不新增对它的调用。
+
+| 属性 | 微信 API 字段 |
+| --- | --- |
+| `wx_brand`、`wx_model` | `brand`、`model` |
+| `wx_system`、`wx_platform` | `system`、`platform` |
+| `wx_version`、`wx_sdk_version` | 微信 `version`、基础库 `SDKVersion` |
+| `wx_language` | `language`，如 `zh_CN` 规范化为 `zh-CN` |
+| `wx_screen_width`、`wx_screen_height` | `screenWidth`、`screenHeight` |
+| `wx_window_width`、`wx_window_height` | `windowWidth`、`windowHeight` |
+| `wx_pixel_ratio` | `pixelRatio` |
+
+字符串去首尾空白且最多 80 个 Unicode 字符；尺寸和像素比只接受有限正数。设备与客户端信息在内存中缓存，窗口信息每次构建事件时更新，以适配旋转/窗口缩放。Umami 标准 `language` 同步使用 API 语言，`screen` 优先采用屏幕尺寸，旧版本缺失时使用窗口尺寸。
+
+在 Umami 支持的自定义属性/数据细分中查看 `wx_*` 字段；这些属性不会自动改写依赖请求 User-Agent 的标准浏览器/操作系统分类，也不会解除模拟器的机器人过滤。SDK 不生成设备 ID、不上传系统权限开关、宿主 appId 或系统信息完整对象。
 
 ## UTM 渠道统计
 

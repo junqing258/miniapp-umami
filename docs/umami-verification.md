@@ -1,5 +1,11 @@
 # Umami 真机验收记录
 
+## 系统 API 上报联调（2026-11-20）
+
+已在开发者工具重新编译并检查实际 `/api/batch` 请求：页面访问与性能事件均携带 `wx_brand`、`wx_model`、`wx_system`、`wx_platform`、`wx_version`、`wx_sdk_version`、`wx_language`、屏幕/窗口宽高和像素比。示例为 `wx_platform=devtools`、`wx_sdk_version=3.18.0`、`screen=390x844`；这些是模拟器返回值，不代表真机型号或版本。控制台未匹配到 error；15 项本地单元测试、修改文件 ESLint 和格式检查通过。
+
+字段仅代表已构建并发出的采集载荷，不证明入库。模拟器机器人过滤限制仍适用；真机系统信息与 Umami 自定义属性展示待真机验收。实现与字段表见 `utils/umami/README.md` 的“系统与设备信息”。
+
 代码已具备上报能力，但以下项目必须在目标部署实例、开发者工具和真机中完成，不能以 Mock 结果替代。
 
 | 项目 | 状态 | 记录内容 |

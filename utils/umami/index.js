@@ -1,11 +1,12 @@
 import Transport from './transport';
 import { startPerformanceObserver } from './performance';
 import { createEntryContext } from './entry';
-import { normalizeLanguage, normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
+import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
+import { createSystemContext } from './system';
 
 let options = null;
 let transport = null;
-let systemInfo = null;
+const getSystemContext = createSystemContext();
 let launchAt = 0;
 let startupReported = false;
 let entryUtmQuery = '';
@@ -16,28 +17,18 @@ function trackingUrl(url) {
   return route && entryUtmQuery ? `${route}?${entryUtmQuery}` : route;
 }
 
-function getSystemInfo() {
-  if (systemInfo) return systemInfo;
-  try {
-    systemInfo = wx.getSystemInfoSync();
-  } catch (error) {
-    systemInfo = {};
-  }
-  return systemInfo;
-}
-
 function enabled() {
   return Boolean(options && options.enabled && transport);
 }
 
 function payload(base = {}) {
-  const info = getSystemInfo();
-  const data = { ...base.data, ...entryData };
+  const info = getSystemContext();
+  const data = { ...base.data, ...entryData, ...info.data };
   return {
     website: options.websiteId,
     hostname: options.hostname,
-    language: normalizeLanguage(info.language),
-    screen: `${info.windowWidth || info.screenWidth || 0}x${info.windowHeight || info.screenHeight || 0}`,
+    language: info.language,
+    ...(info.screen ? { screen: info.screen } : {}),
     ...(typeof options.tag === 'string' && options.tag ? { tag: options.tag.slice(0, 80) } : {}),
     ...base,
     ...(Object.keys(data).length ? { data } : {}),

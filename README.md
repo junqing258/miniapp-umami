@@ -58,6 +58,8 @@ npm install
 
 ## Umami 统计
 
+SDK 通过微信系统 API 上报设备品牌/型号、系统与平台、微信/基础库版本、语言及屏幕/窗口尺寸，字段与查看方式见 [系统与设备信息](utils/umami/README.md#系统与设备信息)。
+
 统计 SDK 位于 `utils/umami/`，由 `app.js` 将根目录 `config.js` 的 `umami` 配置注入。当前局域网联调配置已开启，并使用 `test-audience` 标签标识测试数据；E2E 自动化测试副本会关闭上报。正式环境需要填写可被小程序访问的 HTTPS `/api/send` 地址并配置微信 request 合法域名。
 
 高并发场景的削峰、限流与可靠转发方案见 [Umami 采集网关说明](docs/umami-ingestion-gateway.md)。

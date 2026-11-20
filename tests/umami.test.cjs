@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 
-async function createRuntime() {
+async function createRuntime(wxOverrides = {}) {
   let app;
   let definition;
   let currentRoute = 'pages/home/index';
@@ -30,6 +30,7 @@ async function createRuntime() {
         options.success({ statusCode: 200, data: {} });
         options.complete();
       },
+      ...wxOverrides,
     },
   });
   const config = {
@@ -255,7 +256,7 @@ test('valid unknown scenes retain raw ID; invalid scenes and QR business scene a
   assert.equal(records.length, 9);
   records.forEach(({ payload: record }) => {
     assert.equal(record.url, '/pages/home/index');
-    assert.equal(record.data, undefined);
+    assert.deepEqual(record.data, { wx_window_width: 375, wx_window_height: 812, wx_language: 'zh-CN' });
   });
 });
 
@@ -288,6 +289,91 @@ test('common scene classifications and legacy query setter preserve a clean attr
   runtime.show('pages/home/index');
   assert.deepEqual(
     runtime.drain().map(({ payload }) => [payload.url, payload.data]),
-    [['/pages/home/index?utm_campaign=legacy', undefined]],
+    [['/pages/home/index?utm_campaign=legacy', { wx_window_width: 375, wx_window_height: 812, wx_language: 'zh-CN' }]],
   );
+});
+
+test('system APIs attach whitelisted context to PV and events and refresh window dimensions', async () => {
+  let width = 390;
+  const runtime = await createRuntime({
+    getDeviceInfo: () => ({
+      brand: 'Apple',
+      model: 'iPhone',
+      system: 'iOS 18',
+      platform: 'ios',
+      deviceId: 'private-id',
+    }),
+    getAppBaseInfo: () => ({
+      version: '8.0.60',
+      SDKVersion: '3.18.0',
+      language: 'zh_CN',
+      host: { appId: 'private-app' },
+    }),
+    getWindowInfo: () => ({
+      screenWidth: 390,
+      screenHeight: 844,
+      windowWidth: width,
+      windowHeight: 700,
+      pixelRatio: 3,
+    }),
+    getSystemInfoSync: () => {
+      throw new Error('legacy API should not be called');
+    },
+  });
+  runtime.app.onLaunch({ scene: 1047 });
+  runtime.show('pages/home/index');
+  width = 700;
+  runtime.umami.track('search_submit', { source: 'home', keyword_length: 2, wx_model: 'spoofed' });
+  const records = runtime.drain();
+  assert.equal(records.length, 2);
+  records.forEach(({ payload }) => {
+    assert.equal(payload.screen, '390x844');
+    assert.equal(payload.language, 'zh-CN');
+    assert.equal(payload.data.wx_brand, 'Apple');
+    assert.equal(payload.data.wx_model, 'iPhone');
+    assert.equal(payload.data.wx_system, 'iOS 18');
+    assert.equal(payload.data.wx_platform, 'ios');
+    assert.equal(payload.data.wx_version, '8.0.60');
+    assert.equal(payload.data.wx_sdk_version, '3.18.0');
+    assert.equal(payload.data.wx_pixel_ratio, 3);
+    assert.equal(payload.data.wx_scene, 1047);
+  });
+  assert.equal(records[0].payload.data.wx_window_width, 390);
+  assert.equal(records[1].payload.data.wx_window_width, 700);
+  assert.equal(records[1].payload.data.source, 'home');
+  assert.doesNotMatch(JSON.stringify(records), /private-|spoofed/);
+});
+
+test('failed modern APIs fall back safely and omit invalid system values', async () => {
+  const runtime = await createRuntime({
+    getDeviceInfo: () => {
+      throw new Error('unsupported');
+    },
+    getAppBaseInfo: () => null,
+    getWindowInfo: () => ({}),
+    getSystemInfoSync: () => ({
+      brand: 'x'.repeat(100),
+      model: {},
+      platform: 'devtools',
+      language: 'en_US',
+      cameraAuthorized: true,
+    }),
+  });
+  runtime.app.onLaunch();
+  runtime.show('pages/home/index');
+  const [{ payload }] = runtime.drain();
+  assert.equal(payload.data.wx_brand.length, 80);
+  assert.equal(payload.data.wx_platform, 'devtools');
+  assert.equal(payload.language, 'en-US');
+  assert.equal(payload.screen, undefined);
+  assert.equal(payload.data.wx_model, undefined);
+  assert.doesNotMatch(JSON.stringify(payload), /cameraAuthorized/);
+  const broken = await createRuntime({
+    getSystemInfoSync: () => {
+      throw new Error('unavailable');
+    },
+  });
+  broken.app.onLaunch();
+  broken.show('pages/home/index');
+  assert.equal(broken.drain()[0].payload.screen, undefined);
 });
