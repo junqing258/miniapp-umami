@@ -53,6 +53,7 @@
         text="{{item.name}}"
         image="{{item.image}}"
         url="{{item.url}}"
+        data-type="{{item.type}}"
         data-data="{{item}}"
         bindclick="onEleClick"
       />

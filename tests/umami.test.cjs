@@ -6,7 +6,7 @@ const vm = require('node:vm');
 
 const root = path.resolve(__dirname, '..');
 
-async function createRuntime(wxOverrides = {}) {
+async function createRuntime(wxOverrides = {}, umamiOptions = {}) {
   let app;
   let definition;
   let currentRoute = 'pages/home/index';
@@ -40,6 +40,7 @@ async function createRuntime(wxOverrides = {}) {
       endpoint: 'https://analytics.example/api/send',
       websiteId: 'test',
       hostname: 'miniapp.local',
+      ...umamiOptions,
     },
   };
   const stubs = {
@@ -124,6 +125,46 @@ test('cold entry, internal navigation and events preserve only entry UTM without
   assert.equal(records[1].payload.referrer, 'https://miniapp.local/pages/home/index');
   assert.equal(records[2].payload.name, 'search_submit');
   assert.doesNotMatch(JSON.stringify(records), /private-|internal/);
+});
+
+test('App errors and Promise rejections use the independent error protocol and respect consent', async () => {
+  const runtime = await createRuntime({}, { errors: { enabled: true, release: '1.2.3', environment: 'develop' } });
+  runtime.app.onLaunch();
+  runtime.show('pages/home/index?token=private-token#private-hash');
+  runtime.drain();
+  runtime.app.onError('TypeError: unavailable\n    at home.js:10:4');
+  runtime.app.onUnhandledRejection({ reason: new Error('promise failed'), promise: { secret: 'private' } });
+  runtime.umami.captureException(new Error('handled failure'));
+  const records = runtime.drain();
+  assert.equal(records.length, 3);
+  records.forEach(({ type, payload }) => {
+    assert.equal(type, 'error');
+    assert.equal(payload.version, 1);
+    assert.equal(payload.website, 'test');
+    assert.equal(payload.url, '/pages/home/index');
+    assert.equal(payload.release, '1.2.3');
+    assert.equal(payload.environment, 'develop');
+    assert.match(payload.eventId, /^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/);
+  });
+  assert.deepEqual(
+    records.map(({ payload }) => payload.handled),
+    [false, false, true],
+  );
+  assert.deepEqual(
+    records.map(({ payload }) => payload.tags.source),
+    ['runtime', 'unhandledrejection', 'manual'],
+  );
+  assert.equal(records[0].payload.name, 'TypeError');
+  assert.match(records[0].payload.stack, /home.js:10:4/);
+  assert.doesNotMatch(JSON.stringify(records), /private/);
+  runtime.umami.setEnabled(false);
+  runtime.app.onError('disabled failure');
+  runtime.umami.captureException(new Error('disabled manual'));
+  assert.equal(runtime.drain().length, 0);
+  const disabled = await createRuntime();
+  disabled.app.onLaunch();
+  disabled.app.onError('opt out');
+  assert.equal(disabled.drain().length, 0);
 });
 
 test('warm entry replaces the whole campaign, and a direct entry clears it without rewriting queued records', async () => {

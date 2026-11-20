@@ -4,10 +4,12 @@ import { createEntryContext } from './entry';
 import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
 import { createSystemContext } from './system';
 import Heatmap from './heatmap';
+import ErrorMonitor from './errors';
 
 let options = null;
 let transport = null;
 let heatmap = null;
+let errors = null;
 const getSystemContext = createSystemContext();
 let launchAt = 0;
 let startupReported = false;
@@ -75,6 +77,13 @@ const umami = {
         if (heatmap) heatmap.flush();
       },
     });
+    if (nextOptions.errors && nextOptions.errors.enabled) {
+      errors = new ErrorMonitor(nextOptions, transport, () => {
+        const pages = typeof getCurrentPages === 'function' ? getCurrentPages() : [];
+        const page = pages[pages.length - 1];
+        return { ...getSystemContext(), url: page && page.route };
+      });
+    }
     if (nextOptions.heatmap && nextOptions.heatmap.enabled) {
       heatmap = new Heatmap(
         {
@@ -118,6 +127,10 @@ const umami = {
     trackEvent(name, properties);
   },
 
+  captureException(error, context) {
+    if (enabled() && errors) errors.capture(error, context);
+  },
+
   trackPageReady(duration, route) {
     const elapsed = Number(duration);
     if (!Number.isFinite(elapsed) || elapsed < 0) return;
@@ -134,6 +147,7 @@ const umami = {
   flush() {
     if (transport) transport.flush();
     if (heatmap) heatmap.flush();
+    if (errors) errors.flush();
   },
 
   trackHeatmap(type, route, metrics, point) {
@@ -151,6 +165,7 @@ const umami = {
   setEnabled(value) {
     if (transport) transport.setEnabled(Boolean(value));
     if (heatmap) heatmap.setEnabled(Boolean(value));
+    if (errors) errors.setEnabled(Boolean(value));
     if (options) options.enabled = Boolean(value);
   },
 };

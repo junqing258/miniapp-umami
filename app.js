@@ -41,6 +41,12 @@ App({
   onHide() {
     umami.flush();
   },
+  onError(error) {
+    umami.captureException(error, { handled: false, source: 'runtime' });
+  },
+  onUnhandledRejection(event) {
+    umami.captureException(event && event.reason, { handled: false, source: 'unhandledrejection' });
+  },
   globalData: {
     userInfo: null,
     unreadNum: 0, // 未读消息数量

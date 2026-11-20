@@ -93,7 +93,7 @@ export default class Transport {
           this.batchEndpoint = '';
           this.scheduleDrain(0);
         } else {
-          this.retryOrDrop(items, response.statusCode >= 500);
+          this.handleFailure(items, response.statusCode, response.header);
         }
       },
       fail: () => this.retryOrDrop(items, true),
@@ -103,6 +103,10 @@ export default class Transport {
         this.drain();
       },
     });
+  }
+
+  handleFailure(items, status) {
+    this.retryOrDrop(items, status >= 500);
   }
 
   completeSuccess(items, response, isBatch) {

@@ -1,5 +1,21 @@
 # Umami 真机验收记录
 
+## 错误监控接入（2026-11-20，真机入库待验收）
+
+- 接入前目标“监控 → 错误”报表的发生次数、受影响的访问、问题均为 0。目标实例公开 `/script.js` 确认错误使用 `/api/send` 的 `type: error`，与普通事件和热图协议独立。
+- 已增加 App `onError`、`onUnhandledRejection` 和 `umami.captureException`，携带脱敏消息/堆栈、页面、真实版本/环境、设备白名单标签。错误有独立有界队列、1 秒去重、20 条/分钟限流、有限退避重试、429 暂停及停用清理；不增加 PV 或业务事件。
+- 开发者工具重新编译后首页正常，控制台 `grep -i error` 无匹配；运行时确认 App 两个错误处理函数存在。通过实际 `getApp().onError` 调用提交一条明确命名的 `umami_error_monitor_diagnostic_20261120` 联调错误，未抛出或制造业务崩溃。
+- 实际请求为 `type: error`、`version: 1`、`handled: false`、`url: /pages/home/index`、`environment: develop`、`screen: 390x844`；包含 `source: runtime`、`wx_platform: devtools` 等标签。开发版微信版本字段为空，因此 `release` 保持为空。服务端响应 **200、`{ ok: false, reason: 'bot' }`**，明确未接收模拟器错误，不能将其视为问题已入库。
+- 未关闭机器人过滤、伪造 UA 或借用浏览器会话。错误监控代码已接入，但真机的错误入库、问题分组、受影响访问、状态管理及筛选仍需实际验收。
+- `npm test` 的 29 项单元测试通过，其中 7 项新增错误监控测试覆盖 App 接入、协议/会话、脱敏、去重/有界限流、退避/重试、429、关闭与异常隔离。修改代码 ESLint、Prettier 和 diff 空白检查通过。刷新后台后计数仍为 0，与服务端过滤结果一致。
+
+真机验收步骤：
+
+1. 使用更新代码在手机微信打开小程序，确认 request 域名/HTTPS 配置可用；当前局域网开发地址需手机可访问。
+2. 在真机调试环境中通过 `umami.captureException(new Error('umami_error_monitor_device_diagnostic'))` 发出一条明确标记的错误；自动异常链路应在隔离测试环境验证，避免影响真实业务。不要将 Token 或用户输入放入错误文案。
+3. 检查 `/api/send` 的 `type: error` 请求及服务端响应；`ok: false`、机器人过滤或 HTTP 200 本身均不证明入库成功。随后在后台“监控 → 错误”选择包含发生时间的范围，检查对应问题、发生次数、页面与堆栈，并验证环境/版本筛选。
+4. 同一错误间隔超过 1 秒再次上报，确认服务端聚合为同一问题且发生次数增加；按需验证已解决/忽略等状态行为。已捕获错误应标记 handled，自动捕获标记 unhandled。当前 SDK 不做历史错误回填或源码映射解析。
+
 ## 行为热图接入（2026-11-20，真机待验收）
 
 - 目标热图 GET 接口返回 200，初始结果为 `pages: []`、`points: []`、`snapshot: null`。网站公开 `/recorder` 配置初始为 `enabled: false`。

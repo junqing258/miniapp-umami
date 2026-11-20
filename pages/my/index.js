@@ -81,7 +81,11 @@ definePage({
   },
 
   onEleClick(e) {
-    const { name, url } = e.currentTarget.dataset.data;
+    const { name, type, url } = e.currentTarget.dataset.data;
+    if (type === 'QQ') {
+      // 错误监控联调：通过真实点击抛出异常，由 App.onError 自动捕获。
+      throw new TypeError('UMAMI_TEST_QQ_CLICK: 我的页面 QQ 点击测试异常');
+    }
     if (url) return;
     this.onShowToast('#t-toast', name);
   },

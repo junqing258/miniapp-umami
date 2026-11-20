@@ -56,6 +56,36 @@ pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新�
 - `tag: test-audience` 只标记受众，不生成活动名称。不要把手机号、用户标识等个人信息填入 UTM 值。
 - 不增加额外 PV 或业务事件；历史未采集 UTM 的访问不会自动补齐。
 
+### UTM 字段与“暂无数据”说明
+
+Umami 的 **增长 → UTM** 分别统计以下五个字段。字段可按推广需要填写，不要求每次访问都包含全部五项。
+
+| 参数 | 报表维度 | 用途 | 示例 |
+| --- | --- | --- | --- |
+| `utm_source` | Source（来源） | 区分推广来源或合作方 | `wechat`、`partner_a` |
+| `utm_medium` | Medium（媒介） | 区分推广方式 | `qrcode`、`social`、`paid` |
+| `utm_campaign` | Campaign（活动） | 区分具体推广活动 | `launch_2026` |
+| `utm_content` | Content（内容） | 区分素材版本或投放位置 | `poster_a`、`home_banner` |
+| `utm_term` | Term（关键词） | 区分投放关键词，无关键词推广时可留空 | `discount` |
+
+**为什么还有两项“暂无数据”？** 如果入口只携带 Source、Medium、Campaign，则 Content 和 Term 没有可统计的值，显示“暂无数据”是正常情况，不表示采集失败。SDK 已支持这两个可选字段，但不会从设备信息、微信场景或活动名称中自动生成它们，也不应为了填满报表而填写无意义的值。
+
+需要同时区分素材和关键词时，可使用完整入口：
+
+```text
+pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=launch_2026&utm_content=poster_a&utm_term=discount
+```
+
+开发者工具启动页面填写 `pages/home/index`，启动参数填写：
+
+```text
+utm_source=wechat&utm_medium=qrcode&utm_campaign=launch_2026&utm_content=poster_a&utm_term=discount
+```
+
+修改入口后，需要从该入口重新进入小程序并产生新访问；原有不含 Content / Term 的记录不会自动补齐。验收时检查 `/api/send` 或 `/api/batch` 中的 `payload.url` 是否包含这两个参数，再选择包含新访问时间的报表范围。若请求参数齐全但报表仍为空，继续检查服务端是否接受并入库；模拟器的机器人过滤限制见上文。
+
+品牌、型号、系统、微信版本等设备信息保存在 `data.wx_*` 自定义属性中，不属于 UTM，也不会填充这五个报表维度。
+
 ### 场景分类示例
 
 场景值以[微信官方场景表](https://developers.weixin.qq.com/miniprogram/dev/reference/scene-list.html)为准；分类名是本项目的渠道约定，映射位于 `entry.js`。
@@ -75,6 +105,30 @@ pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新�
 未提供合法顶层数字场景时不生成场景数据，也不推导 Source / Medium。这里只维护常用分类，不保证覆盖官方所有场景；新增场景不会因映射缺失中断业务。
 
 本地回归检查：`npm run test:umami`。
+
+## 错误监控
+
+`config.umami.errors.enabled: true` 启用错误采集。`app.js` 的 `onError` 和 `onUnhandledRejection` 分别上报运行异常和未处理的 Promise 拒绝，标记 `handled: false`。已捕获、仍需监控的错误可手动上报：
+
+```js
+import umami from './utils/umami/index'; // 按当前文件位置调整路径
+
+try {
+  // 业务操作
+} catch (error) {
+  umami.captureException(error); // handled: true；不改变业务自身的异常处理
+}
+```
+
+错误采用目标实例公开采集脚本的独立协议：`POST /api/send`，请求体为 `{ type: 'error', payload }`，不会写成普通事件或增加 PV。可用 `errors.endpoint` 覆盖错误接收地址。请求复用真实服务端 `cache`，不生成用户/设备 ID；每次错误生成独立 UUID，重试保留同一个 ID，供服务端去重。没有会话令牌时仍可提交错误，会话归属和是否接受由服务端决定。
+
+- 包含错误类型、首行消息、堆栈、去掉 query/hash 的当前页面、发生时间、`handled`、语言和屏幕尺寸；`tags.source` 区分 `runtime`、`unhandledrejection`、`manual`，设备标签只保留指定的 `wx_*` 字段。不上传原始拒绝事件、Promise、业务对象、表单或页面数据。
+- `release` 默认读取 `wx.getAccountInfoSync().miniProgram.version`，`environment` 默认使用 `envVersion`（`develop` / `trial` / `release`）；开发版没有版本号时保持为空，不生成虚假版本。可在 `errors` 下显式配置 `release`、`environment`，用于后台版本/环境筛选。
+- 消息最多 2000 字符，堆栈最多 8000 字符；移除 URL 查询参数、fragment 和 URL 内认证信息，脱敏邮箱、常见手机号、JWT、Bearer 及密码/Token/OpenID 等键值。任意业务文本无法靠模式匹配完全脱敏，错误文案仍应避免包含用户输入或个人信息；未识别的拒绝对象只记为 `Non-Error exception`。
+- 同页面、同内容、同处理状态的错误在 1 秒内抑制重复，每分钟最多 20 条，队列最多 20 条；只在内存中保留。错误逐条立即发送，网络/5xx 最多重试两次，遵守退避；`429` 清空待发队列并按 `Retry-After` 暂停（缺省 60 秒，范围 1–300 秒），其他 4xx 不重试。
+- `umami.setEnabled(false)` 同时停止错误采集并清空队列；已交给网络层的请求无法撤回。监控自身失败不会向业务抛异常。`errors.enabled: false` 可单独在启动配置中关闭错误监控；不自动采集 `console.error` 或所有接口失败。
+
+在 **监控 → 错误** 按页面、版本、环境和时间筛选，进入问题查看堆栈与发生次数。堆栈保留微信提供的位置，当前没有源码映射上传功能。模拟器响应 `200` 且 `{ ok: false, reason: 'bot' }` 表示被过滤，不能视为入库成功。实际联调记录与真机验收步骤见 `docs/umami-verification.md`；错误专项回归为 `tests/errors.test.cjs`，随 `npm test` 执行。
 
 ## 行为热图（2026-11-20）
 
