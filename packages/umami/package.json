@@ -1,6 +1,6 @@
 {
   "name": "miniapp-umami",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Umami analytics SDK for WeChat Mini Programs",
   "license": "MIT",
   "repository": {

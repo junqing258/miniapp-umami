@@ -131,6 +131,43 @@ pageTitles: {
 
 SDK 根据合法的顶层数字 `scene` 生成入口场景属性，并为缺失的 Source、Medium 补充默认值，显式 UTM 优先。每次进入均替换之前的渠道上下文，因此需要同时接入 App 的 `onLaunch` 和 `onShow`。`setEntryQuery(query)` 只设置 UTM，并清除场景上下文。
 
+### UTM 从哪里来
+
+UTM 是投放或分享入口携带的渠道参数，由业务方在生成入口时设置，SDK 从 App 启动/进入参数的 `options.query` 中读取。配置 Umami 采集域名或 `websiteId` 不会自动生成活动 UTM；本 SDK 通过请求上报，无需添加网页统计脚本或图片跟踪像素。
+
+| 参数 | 含义 | 示例 |
+| --- | --- | --- |
+| `utm_source` | 来源平台或具体渠道 | `wechat`、`newsletter` |
+| `utm_medium` | 渠道类型 | `social`、`cpc`、`email` |
+| `utm_campaign` | 活动名称 | `double11` |
+| `utm_content` | 区分素材、入口或按钮 | `share_card_a` |
+| `utm_term` | 投放关键词 | `running_shoes` |
+
+例如，在页面的分享回调中，把 UTM 放进分享路径：
+
+```js
+onShareAppMessage() {
+  return {
+    title: '活动首页',
+    path: '/pages/home/index?utm_source=wechat&utm_medium=social&utm_campaign=double11&utm_content=share_card_a',
+  };
+},
+```
+
+接收方通过该卡片进入时，App 的 `onLaunch(options)` / `onShow(options)` 会获得对应的 `options.query`。按快速接入示例调用 `umami.setEntryOptions(options)` 后，后续统计 URL 会附加这些参数，例如：
+
+```text
+/pages/home/index?utm_source=wechat&utm_medium=social&utm_campaign=double11&utm_content=share_card_a
+```
+
+SDK 仅接受这五个键的非空字符串值，去除首尾空白后最多保留 80 个 Unicode 字符，并进行 URL 编码。手动拼接入口参数时，也应对参数值使用 `encodeURIComponent`；不要在渠道参数中放入用户身份或敏感信息。
+
+未显式携带 UTM 时，SDK 会根据有效的微信入口场景补充来源和渠道。例如，顶层 `scene: 1007`（单聊分享）生成 `utm_source=wechat&utm_medium=chat_share`，`scene: 1047`（扫描小程序码）生成 `utm_source=wechat&utm_medium=qrcode`。显式传入 `utm_medium=social` 时，会覆盖场景推导的 Medium；活动、素材和关键词不会自动补充。没有有效场景且没有显式 UTM 时，不生成 UTM。
+
+注意区分微信的顶层数字 `options.scene` 与小程序码中的自定义 `options.query.scene`：SDK 不会自动解码或解析后者。若业务把渠道信息编码进 `query.scene`，需先在业务代码中解析，再将得到的 UTM 字段合并到 `options.query` 后调用 `setEntryOptions`。参数只放在页面 `onLoad` 中、未传给 SDK，也不会成为入口渠道上下文。
+
+### 会话属性
+
 默认通过独立 `identify` 请求发送设备品牌、型号、系统、平台、微信/基础库版本、语言，以及小程序发布版本和运行环境。这些字段用于会话属性筛选，不重复写入普通事件的自定义属性。
 
 会话属性依赖普通采集响应提供真实 `cache` 令牌，并通过 `x-umami-cache` 复用。SDK 不生成 OpenID、设备 ID 或 distinct ID。自定义网关必须返回真实令牌并转发 `identify` 和对应请求头，仅返回 `202 accepted` 不足以支持会话属性与热图关联。
