@@ -1,9 +1,9 @@
 // app.js
+import umami from 'miniapp-umami';
 import config from './config.js';
 import Mock from './mock/index';
 import createBus from './utils/eventBus';
 import { connectSocket, fetchUnreadNum } from './mock/chat';
-import umami from './utils/umami/index';
 
 if (config.isMock) {
   Mock();

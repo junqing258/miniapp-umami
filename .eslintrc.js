@@ -26,7 +26,7 @@ module.exports = {
   extends: ['eslint-config-airbnb-base', 'eslint-config-prettier'],
   overrides: [
     {
-      files: ['tests/**/*.cjs'],
+      files: ['**/tests/**/*.cjs', '**/scripts/**/*.cjs'],
       parserOptions: { ecmaVersion: 2022 },
     },
   ],

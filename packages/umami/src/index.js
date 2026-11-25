@@ -1,13 +1,13 @@
-import Transport from './transport';
-import { startPerformanceObserver } from './performance';
-import { createEntryContext } from './entry';
-import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize';
-import { createSystemContext } from './system';
-import Heatmap from './heatmap';
-import ErrorMonitor from './errors';
-import { createVersionContext } from './version';
-import Experiments from './experiments';
-import SessionProperties from './session';
+import Transport from './transport.js';
+import { startPerformanceObserver } from './performance.js';
+import { createEntryContext } from './entry.js';
+import { normalizeRoute, sanitizeEvent, sanitizeUtmQuery } from './sanitize.js';
+import { createSystemContext } from './system.js';
+import Heatmap from './heatmap.js';
+import ErrorMonitor from './errors.js';
+import { createVersionContext } from './version.js';
+import Experiments from './experiments.js';
+import SessionProperties from './session.js';
 
 let options = null;
 let transport = null;
@@ -54,7 +54,7 @@ function send(eventPayload) {
 function trackEvent(name, properties, route, experimentData) {
   if (!enabled()) return;
   if (name === 'experiment_exposure' && !experimentData) return;
-  const event = sanitizeEvent(name, properties);
+  const event = sanitizeEvent(name, properties, options.eventProperties);
   if (!event) return;
   const pages = getCurrentPages();
   const currentPage = pages[pages.length - 1];
@@ -65,6 +65,11 @@ function trackEvent(name, properties, route, experimentData) {
       data: { ...event.data, ...experimentData },
     }),
   );
+}
+
+export function getPageTitle(route) {
+  const titles = options && options.pageTitles;
+  return titles && Object.prototype.hasOwnProperty.call(titles, route) ? titles[route] : '';
 }
 
 export function getHostname() {

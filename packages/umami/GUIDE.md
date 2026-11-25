@@ -1,6 +1,6 @@
 # Umami 小程序 SDK
 
-`app.js` 将根目录 `config.js` 中的 `umami` 配置注入 SDK。SDK 不读取业务配置，也不复用业务请求层。
+应用通过 `umami.init(options)` 注入配置。以下示例业务说明来自示例仓库；独立包安装和通用接入见 [README](README.md)。SDK 不读取业务配置，也不复用业务请求层。
 
 - `enabled` 为 `false` 时不会发送请求；开发联调时再显式开启。
 - `debug` 只记录投递失败等 SDK 状态，不记录事件载荷或业务数据。
@@ -8,11 +8,11 @@
 - 页面统一用 `definePage` 注册，`onShow` 自动发送一次 PV；不要再手动发送 PV。
 - `definePage` 还会在每个页面首次 `onReady` 后发送 `performance_page_ready`，其 `duration_ms` 是从该页面 `onLoad` 到业务 `onReady`（包括 `async onReady` 所等待工作）的耗时；首个就绪页面同时发送一次 `performance_app_startup`，表示 App `onLaunch` 到首屏就绪的耗时。
 - SDK 会使用 `wx.getPerformance().createObserver()` 监听 `render` 条目：以 `firstRender.startTime` 为基准，分别上报 `firstContentfulPaint` 的 `performance_fcp` 和 `largestContentfulPaint` 的 `performance_lcp`，字段均为 `value_ms`。仅在三者时间戳有效且差值大于 0 时上报；旧基础库或不支持这些条目的设备会跳过，不影响业务。
-- SDK 同时监听 `navigation` 和 `script` 条目：`appLaunch.duration` 上报为 `performance_app_launch`；分包页面的 `route.duration` 上报为 `performance_subpackage_route`；`evaluateScript.duration` 结合 `moduleName` 上报为 `performance_package_script`（主包记为 `main`）。在 `config.umami.subpackages` 中维护 `app.json` 分包根目录与名称的映射。
+- SDK 同时监听 `navigation` 和 `script` 条目：`appLaunch.duration` 上报为 `performance_app_launch`；分包页面的 `route.duration` 上报为 `performance_subpackage_route`；`evaluateScript.duration` 结合 `moduleName` 上报为 `performance_package_script`（主包记为 `main`）。在 `options.subpackages` 中维护 `app.json` 分包根目录与名称的映射。
 - `performance_subpackage_route` 是用户实际等待的进入分包页面总耗时，可能包含下载、注入、初始化和页面切换；自动下载没有稳定的纯下载耗时 API，不能将该指标标记为纯下载时间。
 - 微信小程序 Performance API 目前没有交互时序或布局偏移条目，因而不能据此计算真实 INP、CLS；SDK 不会用点击或 `setData` 耗时冒充这两个指标。
 - 性能事件的自定义属性仅含白名单耗时/分包字段和当次入口场景；页面路由使用现有 Umami `url` 字段，不采集请求地址、设备唯一标识或业务数据。
-- 只允许已在 `sanitize.js` 白名单中声明的业务及性能事件和属性。
+- 只允许 `eventProperties` 配置声明的业务事件及属性，以及 SDK 内置的性能/实验事件。页面标题通过 `pageTitles` 配置。
 - 队列最多 50 条；正常情况下最多合并 10 条、等待 1.5 秒后调用 `/api/batch`，以降低请求数。目标实例不支持批量接口时自动回退为逐条 `/api/send`。
 - 网络和 5xx 最多重试两次，按指数退避并加入随机抖动；不会持久化或保证恰好一次投递。
 
@@ -33,7 +33,7 @@ SDK 使用 `wx.getAccountInfoSync().miniProgram`，通过 `identify` 的会话�
 
 ## 会话属性
 
-默认开启（`config.umami.sessionProperties: false` 可单独关闭），自动上报以下稳定字段：
+默认开启（`options.sessionProperties: false` 可单独关闭），自动上报以下稳定字段：
 
 - `miniapp_version`、`miniapp_env`：小程序发布版本、运行环境。
 - `wx_brand`、`wx_model`、`wx_system`、`wx_platform`：设备品牌/型号、系统、平台。
@@ -49,7 +49,7 @@ SDK 使用 `wx.getAccountInfoSync().miniProgram`，通过 `identify` 的会话�
 
 ## A/B 实验
 
-SDK 提供本地稳定分组、显式曝光和转化事件归因。当前联调配置已开启首页发布按钮文案实验 `home_publish_cta`（revision 为 `v1`，A/B 各 50%）：A 为“发布”，B 为“立即发布”，沿用相同点击事件与跳转。实验开关由 `config.umami.experiments` 控制；关闭时不发送曝光或写入实验存储：
+SDK 提供本地稳定分组、显式曝光和转化事件归因。当前联调配置已开启首页发布按钮文案实验 `home_publish_cta`（revision 为 `v1`，A/B 各 50%）：A 为“发布”，B 为“立即发布”，沿用相同点击事件与跳转。实验开关由 `options.experiments` 控制；关闭时不发送曝光或写入实验存储：
 
 ```js
 experiments: {
@@ -116,7 +116,7 @@ pages/home/index?utm_source=wechat&utm_medium=qrcode&utm_campaign=模拟拉新�
 
 开发者工具中可将启动页面设为 `pages/home/index`、场景值设为 `1047`、启动参数设为 `utm_campaign=模拟拉新活动`；SDK 会补齐 `utm_source=wechat`、`utm_medium=qrcode`。重新编译后检查请求与 Umami 的 **增长 → UTM**。构造实际二维码/分享 URL 时应将中文活动名 URL 编码一次；填写开发者工具的原始启动参数时可直接使用中文。
 
-目标实例可能将开发者工具 User-Agent 识别为机器人：`/api/send` 返回 `200` 和 `{"beep":"boop"}` 表示跳过入库，批量接口的 `processed` 也不保证已入库。应结合实际报表或真机验收；本次联调记录见 `docs/umami-verification.md`。
+目标实例可能将开发者工具 User-Agent 识别为机器人：`/api/send` 返回 `200` 和 `{"beep":"boop"}` 表示跳过入库，批量接口的 `processed` 也不保证已入库。应结合实际报表或真机验收；本次联调记录见 示例仓库的 `docs/umami-verification.md`。
 
 - App 的 `onLaunch` / `onShow` 将完整入口参数交给 `setEntryOptions`。入口 `query` 仍只读取 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content`：只接受非空字符串，每项最多 80 个 Unicode 字符，编码后放入页面访问和自定义事件的 `payload.url` 查询串，供 Umami 解析。
 - **显式 UTM 优先**：存在有效的微信顶层数字 `options.scene` 时，按场景补齐缺失的 Source（`wechat`）及 Medium；不覆盖入口已有的有效字段。无效或空值按缺失处理。场景只说明入口类型，无法推断活动名称，因此绝不自动生成 Campaign、Term、Content。
@@ -174,14 +174,14 @@ utm_source=wechat&utm_medium=qrcode&utm_campaign=launch_2026&utm_content=poster_
 
 未提供合法顶层数字场景时不生成场景数据，也不推导 Source / Medium。这里只维护常用分类，不保证覆盖官方所有场景；新增场景不会因映射缺失中断业务。
 
-本地回归检查：`npm run test:umami`。
+本地回归检查：`npm test`。
 
 ## 错误监控
 
-`config.umami.errors.enabled: true` 启用错误采集。`app.js` 的 `onError` 和 `onUnhandledRejection` 分别上报运行异常和未处理的 Promise 拒绝，标记 `handled: false`。已捕获、仍需监控的错误可手动上报：
+`options.errors.enabled: true` 启用错误采集。`app.js` 的 `onError` 和 `onUnhandledRejection` 分别上报运行异常和未处理的 Promise 拒绝，标记 `handled: false`。已捕获、仍需监控的错误可手动上报：
 
 ```js
-import umami from './utils/umami/index'; // 按当前文件位置调整路径
+import umami from 'miniapp-umami';
 
 try {
   // 业务操作
@@ -198,11 +198,11 @@ try {
 - 同页面、同内容、同处理状态的错误在 1 秒内抑制重复，每分钟最多 20 条，队列最多 20 条；只在内存中保留。错误逐条立即发送，网络/5xx 最多重试两次，遵守退避；`429` 清空待发队列并按 `Retry-After` 暂停（缺省 60 秒，范围 1–300 秒），其他 4xx 不重试。
 - `umami.setEnabled(false)` 同时停止错误采集并清空队列；已交给网络层的请求无法撤回。监控自身失败不会向业务抛异常。`errors.enabled: false` 可单独在启动配置中关闭错误监控；不自动采集 `console.error` 或所有接口失败。
 
-在 **监控 → 错误** 按页面、版本、环境和时间筛选，进入问题查看堆栈与发生次数。堆栈保留微信提供的位置，当前没有源码映射上传功能。模拟器响应 `200` 且 `{ ok: false, reason: 'bot' }` 表示被过滤，不能视为入库成功。实际联调记录与真机验收步骤见 `docs/umami-verification.md`；错误专项回归为 `tests/errors.test.cjs`，随 `npm test` 执行。
+在 **监控 → 错误** 按页面、版本、环境和时间筛选，进入问题查看堆栈与发生次数。堆栈保留微信提供的位置，当前没有源码映射上传功能。模拟器响应 `200` 且 `{ ok: false, reason: 'bot' }` 表示被过滤，不能视为入库成功。实际联调记录与真机验收步骤见 示例仓库的 `docs/umami-verification.md`；错误专项回归为 `tests/errors.test.cjs`，随 `npm test` 执行。
 
 ## 行为热图（2026-11-20）
 
-`config.umami.heatmap.enabled: true` 启用小程序适配。启动后读取 `/api/websites/{websiteId}/recorder`，仅在服务端 `enabled`、`heatmapEnabled` 均为真且本次启动命中 `heatmapSampleRate` 时采集。采样按 App 启动决定，变更服务端设置后需重新进入小程序。
+`options.heatmap.enabled: true` 启用小程序适配。启动后读取 `/api/websites/{websiteId}/recorder`，仅在服务端 `enabled`、`heatmapEnabled` 均为真且本次启动命中 `heatmapSampleRate` 时采集。采样按 App 启动决定，变更服务端设置后需重新进入小程序。
 
 热图使用独立协议：`POST /api/record`，请求体为 `{ type: 'heatmap', payload: { website, events } }`。普通 `/api/send` 或 `/api/batch` 返回的 `cache` 令牌仅保存在内存，并以 `x-umami-cache` 请求头复用；没有有效服务端令牌时不发送热图。热图最多缓冲 50 条，每批最多 20 条、等待 2 秒；网络/5xx 最多重试两次，页面隐藏或 App 切后台时尽力刷新队列。关闭 SDK 会清空队列和令牌。自定义网关需要分别转发 record/config 接口，可用 `heatmap.endpoint`、`heatmap.configEndpoint` 指定完整地址。
 
@@ -214,4 +214,4 @@ try {
 
 当前部署的 Umami 热图背景采用“网站域名 + 路由”的 iframe，例如 `https://miniapp.xiaoanai.top/pages/home/index`。小程序没有对应网页，因此采集成功并不等于可以展示真实页面背景；需在远程部署适配静态页面/截图背景，并按视口宽度、路由、页面版本及滚动容器匹配。SDK 不自动截屏或上传页面内容。历史未采集的坐标不能回填。
 
-真机联调及当前限制见 `docs/umami-verification.md`。热图专项测试位于 `tests/heatmap.test.cjs`，可运行 `npm test`。
+真机联调及当前限制见 示例仓库的 `docs/umami-verification.md`。热图专项测试位于 `tests/heatmap.test.cjs`，可运行 `npm test`。

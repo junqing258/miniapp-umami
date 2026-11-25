@@ -45,6 +45,7 @@
 ```bash
 # 安装项目依赖
 npm install
+npm run build:umami
 
 ```
 
@@ -58,17 +59,17 @@ npm install
 
 ## Umami 统计
 
-SDK 通过微信系统 API 获取设备品牌/型号、系统与平台、微信/基础库版本、语言及屏幕尺寸，字段与查看方式见 [系统与设备信息](utils/umami/README.md#系统与设备信息)。
+SDK 通过微信系统 API 获取设备品牌/型号、系统与平台、微信/基础库版本、语言及屏幕尺寸，字段与查看方式见 [系统与设备信息](packages/umami/GUIDE.md#系统与设备信息)。
 
-稳定的设备信息、小程序版本和运行环境仅通过 `identify` 上报为会话属性，供“筛选器 → 会话属性”使用；普通事件的自定义属性保留业务、性能、实验数据及当次入口场景。依赖真实服务端会话令牌，配置、投递规则与真机验收见 [会话属性](utils/umami/README.md#会话属性)。
+稳定的设备信息、小程序版本和运行环境仅通过 `identify` 上报为会话属性，供“筛选器 → 会话属性”使用；普通事件的自定义属性保留业务、性能、实验数据及当次入口场景。依赖真实服务端会话令牌，配置、投递规则与真机验收见 [会话属性](packages/umami/GUIDE.md#会话属性)。
 
-小程序发布版本和运行环境属于会话属性，不再重复附加到每条事件。SDK 支持本地稳定 A/B 分组、显式曝光和业务事件归因；当前联调配置已开启首页发布按钮文案实验，A/B 各 50%。配置、分析口径及验收步骤见 [小程序发布版本](utils/umami/README.md#小程序发布版本) 和 [A/B 实验](utils/umami/README.md#ab-实验)。
+小程序发布版本和运行环境属于会话属性，不再重复附加到每条事件。SDK 支持本地稳定 A/B 分组、显式曝光和业务事件归因；当前联调配置已开启首页发布按钮文案实验，A/B 各 50%。配置、分析口径及验收步骤见 [小程序发布版本](packages/umami/GUIDE.md#小程序发布版本) 和 [A/B 实验](packages/umami/GUIDE.md#ab-实验)。
 
-统计 SDK 位于 `utils/umami/`，由 `app.js` 将根目录 `config.js` 的 `umami` 配置注入。当前局域网联调配置已开启，并使用 `test-audience` 标签标识测试数据；E2E 自动化测试副本会关闭上报。正式环境需要填写可被小程序访问的 HTTPS `/api/send` 地址并配置微信 request 合法域名。
+统计 SDK 已拆分为独立 npm 包 [`miniapp-umami`](packages/umami/README.md)，源码位于 `packages/umami/`，示例通过 `file:packages/umami` 本地 npm 依赖引入（`miniapp-umami` / `miniapp-umami/page`），安装依赖后先执行 `npm run build:umami`，再在微信开发者工具执行「工具 → 构建 npm」。由 `app.js` 将根目录 `config.js` 的 `umami` 配置注入。当前局域网联调配置已开启，并使用 `test-audience` 标签标识测试数据；E2E 自动化测试副本会关闭上报。正式环境需要填写可被小程序访问的 HTTPS `/api/send` 地址并配置微信 request 合法域名。
 
 高并发场景的削峰、限流与可靠转发方案见 [Umami 采集网关说明](docs/umami-ingestion-gateway.md)。
 
-页面通过 `definePage` 在每次 `onShow` 自动统计；不要在业务页额外发送页面访问。已接入的业务事件是登录成功、搜索提交、发布点击、保存草稿点击和首页主动刷新。SDK 仅发送白名单属性、入口 UTM 和微信顶层数字场景值（含分类），不会发送手机号、验证码、密码、Token、搜索原文、聊天内容或其他路由 query。显式 UTM 优先，缺失的来源/媒介按场景补齐，活动名由推广入口指定。配置及验证方法见 [SDK 说明](utils/umami/README.md#utm-渠道统计)。
+页面通过 `definePage` 在每次 `onShow` 自动统计；不要在业务页额外发送页面访问。已接入的业务事件是登录成功、搜索提交、发布点击、保存草稿点击和首页主动刷新。SDK 仅发送白名单属性、入口 UTM 和微信顶层数字场景值（含分类），不会发送手机号、验证码、密码、Token、搜索原文、聊天内容或其他路由 query。显式 UTM 优先，缺失的来源/媒介按场景补齐，活动名由推广入口指定。配置及验证方法见 [SDK 说明](packages/umami/GUIDE.md#utm-渠道统计)。
 
 当前实现的上线前验收仍须在开发者工具和两台真机完成：确认目标 Umami 版本与 User-Agent 接受情况、绝对 referrer 和语言展示、Mock 对完整采集 URL 的透传、同 WiFi/不同网络下的 UV 口径，以及真实登录 API 的业务成功响应契约。局域网 HTTP 地址只可用于临时调试，不是正式发布配置。
 

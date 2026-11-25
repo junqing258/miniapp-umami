@@ -2,7 +2,7 @@
 
 ## 目标与范围
 
-在当前原生 JavaScript + TDesign 微信小程序中接入 Umami，实现全部页面访问统计和首批业务事件。SDK 统一封装在 `utils/umami/`，业务页面仅调用 SDK 的公开接口。
+在当前原生 JavaScript + TDesign 微信小程序中接入 Umami，实现全部页面访问统计和首批业务事件。SDK 统一封装在 `packages/umami/src/`，业务页面仅调用 SDK 的公开接口。
 
 本阶段仅制定规划，不实现 SDK、不修改页面、不修改 Umami 服务端配置。
 
@@ -14,7 +14,7 @@
 | 服务地址 | `http://192.168.31.120:3002` |
 | 预计采集接口 | `http://192.168.31.120:3002/api/send` |
 | websiteId | `543538c5-b3bb-4858-b8ac-850cad751578` |
-| SDK 目录 | `utils/umami/` |
+| SDK 目录 | `packages/umami/src/` |
 
 采集接口按 Umami 官方协议规划，尚未对该实例进行连通性和版本验证。管理页面地址不能直接作为上报地址。
 
@@ -35,19 +35,19 @@
 ## SDK 结构与接口
 
 ```text
-utils/umami/
+packages/umami/src/
   index.js       # 对外接口及 SDK 状态管理
   transport.js   # 独立 wx.request、发送队列、有限重试
   page.js        # 页面注册封装、页面展示与来源跟踪
   sanitize.js    # 属性白名单、类型与长度限制
-  README.md      # SDK 使用说明，实施时补充
+  # 使用说明见 ../README.md 与 ../GUIDE.md
 ```
 
 建议接口：
 
 ```js
-import umami from '~/utils/umami/index';
-import { definePage } from '~/utils/umami/page';
+import umami from 'miniapp-umami';
+import { definePage } from 'miniapp-umami/page';
 
 umami.init(options);
 umami.trackPageview({ url: '/pages/home/index', title: '首页' });
@@ -66,7 +66,7 @@ definePage({
 
 在根目录 `config.js` 增加 `umami` 配置项：`enabled`、`endpoint`、`websiteId`、`hostname`、可选 `tag`、`debug` 和环境启用策略。逻辑 hostname 实施时选定固定值，不根据设备 IP 生成，也不将其误作采集服务器地址。联调可使用固定 `tag: 'test-audience'` 作为测试受众，在 Umami 中按 Tag 筛选；它随既有请求发送，不额外生成事件。
 
-配置只写入根 `config.js`。优先由 `app.js` 显式导入 `./config.js`，再以参数传入 `umami.init(config.umami)`，使 SDK 不依赖项目配置路径；业务 request 改为显式导入 `../config.js`。如确需 SDK 内直接引用根配置，从 `utils/umami/index.js` 出发应为 `../../config.js`，不是 `../config`。完成解析核对后删除或归档 `config/index.js`，保留唯一配置来源。
+配置只写入根 `config.js`。优先由 `app.js` 显式导入 `./config.js`，再以参数传入 `umami.init(config.umami)`，使 SDK 不依赖项目配置路径；业务 request 改为显式导入 `../config.js`。SDK 不直接引用示例项目的根配置。完成解析核对后删除或归档 `config/index.js`，保留唯一配置来源。
 
 ## 上报协议与传输
 
@@ -103,9 +103,9 @@ definePage({
 - 同一路由再次真实展示可以再次计数，仅防止同一次生命周期被多处重复采集。
 - 首次进入 `referrer` 为空；前后台恢复时不把当前页写成自己的来源。
 - 使用页面实例及展示顺序维护来源，覆盖返回、重定向和 `reLaunch`，避免只靠导航 API 拦截推断访问。
-- 只允许入口 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content` 白名单 query，不上传其他 query、聊天对象信息或页面完整 data。入口归因生命周期见 `utils/umami/README.md`。
+- 只允许入口 `utm_source`、`utm_medium`、`utm_campaign`、`utm_term`、`utm_content` 白名单 query，不上传其他 query、聊天对象信息或页面完整 data。入口归因生命周期见 `packages/umami/GUIDE.md`。
 - 首页回跳参数 `oper` 可作为首个白名单候选，仅允许 `release`、`save`，用于区分发布或草稿操作后的首页访问。首期默认仍不上传；若启用，优先作为页面事件属性并验证实例支持，不在属性不可用时额外发送一次 PV。该参数仅表达回跳来源，不证明业务成功。
-- App 顶层数字启动场景作为页面访问和事件的公共属性上报；显式 UTM 优先，缺失的 Source / Medium 按真实场景映射为 `wechat` 及入口分类，Campaign 仍由入口指定。不采集业务 `query.scene` 原文，不伪造浏览器 referrer。具体分类及生命周期见 `utils/umami/README.md`。
+- App 顶层数字启动场景作为页面访问和事件的公共属性上报；显式 UTM 优先，缺失的 Source / Medium 按真实场景映射为 `wechat` 及入口分类，Campaign 仍由入口指定。不采集业务 `query.scene` 原文，不伪造浏览器 referrer。具体分类及生命周期见 `packages/umami/GUIDE.md`。
 
 ### 首批业务事件
 
@@ -141,7 +141,7 @@ definePage({
 ## 实施步骤
 
 1. **协议与网络验证**：确认实例版本，使用指定 websiteId 从开发者工具和真机各发送页面访问、业务事件，确认状态码和 Umami 后台数据；验证 User-Agent、Mock 透传及访客口径。专门验证绝对 referrer 的路径保留、与 hostname 的匹配、站内来源归类及首次进入空来源；同时核对目标版本对纯路径 referrer 的解析行为。
-2. **SDK 基础能力**：先收敛根 `config.js`，显式指定配置文件路径，核对并删除或归档同名目录入口；由 App 向 SDK 注入配置。再在 `utils/umami/` 实现独立传输、事件过滤、有限队列、开关及调试能力，在 `app.js` 初始化。
+2. **SDK 基础能力**：先收敛根 `config.js`，显式指定配置文件路径，核对并删除或归档同名目录入口；由 App 向 SDK 注入配置。再在 `packages/umami/src/` 实现独立传输、事件过滤、有限队列、开关及调试能力，在 `app.js` 初始化。
 3. **自动页面统计**：增加标题映射和 `definePage`，逐一适配主包及分包页面，明确来源与前后台恢复口径。
 4. **业务事件**：先修正并验证业务 request 与 Mock 的统一响应契约，确认真实登录成功判定，再接入登录事件；若真实接口契约尚未提供，标记真实登录验收待完成，不能以 Mock 验收替代。新增统一搜索动作并接入三个来源，排除删除历史确认回调。随后接入发布按钮、草稿按钮、首页刷新，检查实际成功与按钮点击的区别。
 5. **验证与说明**：补充 SDK 文档与根 README 接入说明，执行有针对性的生命周期、过滤、队列测试及微信真机验收。

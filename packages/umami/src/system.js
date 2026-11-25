@@ -1,4 +1,4 @@
-import { normalizeLanguage } from './sanitize';
+import { normalizeLanguage } from './sanitize.js';
 
 const TEXT_FIELDS = {
   brand: 'wx_brand',

@@ -1,5 +1,5 @@
-import Transport from './transport';
-import { normalizeRoute } from './sanitize';
+import Transport from './transport.js';
+import { normalizeRoute } from './sanitize.js';
 
 const MAX_ERRORS = 20;
 const SOURCES = ['manual', 'runtime', 'unhandledrejection'];

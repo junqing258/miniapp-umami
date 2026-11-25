@@ -1,5 +1,5 @@
 // pages/chat/index.js
-import { definePage } from '~/utils/umami/page';
+import { definePage } from 'miniapp-umami/page';
 
 const app = getApp();
 const { socket } = app.globalData; // 获取已连接的socketTask

@@ -1,12 +1,5 @@
 const EVENT_PROPERTIES = {
   experiment_exposure: [],
-  login_success: ['method', 'mock'],
-  search_submit: ['source', 'keyword_length'],
-  release_click: [],
-  draft_save_click: [],
-  home_refresh: [],
-  home_list_item_click: ['source', 'position'],
-  home_release_entry_click: [],
   performance_page_ready: ['duration_ms'],
   performance_app_startup: ['duration_ms'],
   performance_app_launch: ['duration_ms'],
@@ -44,8 +37,11 @@ function sanitizeValue(value) {
   return undefined;
 }
 
-export function sanitizeEvent(name, properties = {}) {
-  const allowedProperties = EVENT_PROPERTIES[name];
+export function sanitizeEvent(name, properties = {}, eventProperties = {}) {
+  const allowedProperties = Object.prototype.hasOwnProperty.call(EVENT_PROPERTIES, name)
+    ? EVENT_PROPERTIES[name]
+    : Object.prototype.hasOwnProperty.call(eventProperties, name) && eventProperties[name];
+  if (!Array.isArray(allowedProperties)) return null;
   if (!allowedProperties) return null;
 
   const data = {};

@@ -1,7 +1,7 @@
+import umami from 'miniapp-umami';
+import { definePage } from 'miniapp-umami/page';
 import request from '~/api/request';
 import config from '../../config.js';
-import umami from '~/utils/umami/index';
-import { definePage } from '~/utils/umami/page';
 
 definePage({
   data: {

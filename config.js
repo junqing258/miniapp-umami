@@ -2,6 +2,28 @@ export default {
   isMock: true,
   baseUrl: '',
   umami: {
+    eventProperties: {
+      login_success: ['method', 'mock'],
+      search_submit: ['source', 'keyword_length'],
+      release_click: [],
+      draft_save_click: [],
+      home_refresh: [],
+      home_list_item_click: ['source', 'position'],
+      home_release_entry_click: [],
+    },
+    pageTitles: {
+      '/pages/home/index': '首页',
+      '/pages/message/index': '消息',
+      '/pages/my/index': '我的',
+      '/pages/search/index': '搜索',
+      '/pages/my/info-edit/index': '编辑资料',
+      '/pages/chat/index': '聊天',
+      '/pages/login/login': '登录',
+      '/pages/loginCode/loginCode': '验证码登录',
+      '/pages/dataCenter/index': '数据中心',
+      '/pages/setting/index': '设置',
+      '/pages/release/index': '发布',
+    },
     // Enabled for local testing; production requires HTTPS, privacy review, and real-device checks.
     enabled: true,
     endpoint: 'http://192.168.31.120:3002/api/send',

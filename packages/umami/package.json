@@ -1,0 +1,46 @@
+{
+  "name": "miniapp-umami",
+  "version": "0.1.0",
+  "description": "Umami analytics SDK for WeChat Mini Programs",
+  "license": "MIT",
+  "publishConfig": {
+    "registry": "https://registry.npmjs.org/"
+  },
+  "type": "module",
+  "main": "./lib/index.js",
+  "module": "./src/index.js",
+  "miniprogram": "lib",
+  "exports": {
+    ".": {
+      "import": "./src/index.js",
+      "require": "./lib/index.js"
+    },
+    "./page": {
+      "import": "./src/page.js",
+      "require": "./lib/page.js"
+    },
+    "./package.json": "./package.json"
+  },
+  "files": [
+    "src",
+    "lib",
+    "GUIDE.md"
+  ],
+  "scripts": {
+    "build": "tsc -p tsconfig.build.json && node scripts/finalize.cjs",
+    "prepack": "npm run build",
+    "test": "node --experimental-vm-modules --test tests/*.test.cjs"
+  },
+  "devDependencies": {
+    "typescript": "6.0.3"
+  },
+  "keywords": [
+    "umami",
+    "wechat",
+    "miniprogram",
+    "analytics"
+  ],
+  "engines": {
+    "node": ">=18"
+  }
+}

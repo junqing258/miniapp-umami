@@ -1,6 +1,6 @@
+import { definePage } from 'miniapp-umami/page';
 import request from '~/api/request';
 import useToastBehavior from '~/behaviors/useToast';
-import { definePage } from '~/utils/umami/page';
 
 definePage({
   behaviors: [useToastBehavior],

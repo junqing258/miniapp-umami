@@ -1,6 +1,6 @@
 // pages/message/message.js
+import { definePage } from 'miniapp-umami/page';
 import { fetchMessageList, markMessagesRead } from '~/mock/chat';
-import { definePage } from '~/utils/umami/page';
 
 const app = getApp();
 const { socket } = app.globalData; // 获取已连接的 socketTask

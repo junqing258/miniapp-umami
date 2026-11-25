@@ -1,5 +1,5 @@
-import Transport from './transport';
-import { normalizeRoute } from './sanitize';
+import Transport from './transport.js';
+import { normalizeRoute } from './sanitize.js';
 
 function finite(value) {
   return typeof value === 'number' && Number.isFinite(value);

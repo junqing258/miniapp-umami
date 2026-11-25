@@ -1,4 +1,4 @@
-import Transport from './transport';
+import Transport from './transport.js';
 
 const SESSION_FIELDS = [
   'wx_brand',

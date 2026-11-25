@@ -1,7 +1,7 @@
 import Message from 'tdesign-miniprogram/message/index';
+import umami from 'miniapp-umami';
+import { definePage } from 'miniapp-umami/page';
 import request from '~/api/request';
-import umami from '~/utils/umami/index';
-import { definePage } from '~/utils/umami/page';
 
 // 获取应用实例
 // const app = getApp()

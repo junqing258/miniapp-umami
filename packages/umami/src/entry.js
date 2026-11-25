@@ -1,4 +1,4 @@
-import { sanitizeUtmQuery } from './sanitize';
+import { sanitizeUtmQuery } from './sanitize.js';
 
 // 常用入口按微信官方场景表分类；未列出的有效场景保留原值，归入 other。
 // https://developers.weixin.qq.com/miniprogram/dev/reference/scene-list.html

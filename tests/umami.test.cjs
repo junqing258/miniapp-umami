@@ -41,6 +41,15 @@ async function createRuntime(wxOverrides = {}, umamiOptions = {}, random = Math.
       endpoint: 'https://analytics.example/api/send',
       websiteId: 'test',
       hostname: 'miniapp.local',
+      eventProperties: {
+        login_success: ['method', 'mock'],
+        search_submit: ['source', 'keyword_length'],
+        release_click: [],
+        draft_save_click: [],
+        home_refresh: [],
+        home_list_item_click: ['source', 'position'],
+        home_release_entry_click: [],
+      },
       ...umamiOptions,
     },
   };
@@ -73,13 +82,15 @@ async function createRuntime(wxOverrides = {}, umamiOptions = {}, random = Math.
     return module;
   }
   const entry = new vm.SourceTextModule(
-    "import './app.js'; export { default as umami } from './utils/umami/index.js'; export { definePage } from './utils/umami/page.js'; export { sanitizeUtmQuery } from './utils/umami/sanitize.js';",
+    "import './app.js'; export { default as umami } from './packages/umami/src/index.js'; export { definePage } from './packages/umami/src/page.js'; export { sanitizeUtmQuery } from './packages/umami/src/sanitize.js';",
     { context, identifier: path.join(root, 'test-entry.js') },
   );
   function resolveModule(specifier, parent) {
     let resolved = specifier.startsWith('~/')
       ? path.resolve(root, specifier.slice(2))
       : path.resolve(path.dirname(parent.identifier), specifier);
+    if (specifier === 'miniapp-umami') resolved = path.join(root, 'packages/umami/src/index.js');
+    if (specifier === 'miniapp-umami/page') resolved = path.join(root, 'packages/umami/src/page.js');
     if (specifier === 'tdesign-miniprogram/message/index') resolved = path.join(root, 'tdesign-message.js');
     return load(path.extname(resolved) ? resolved : `${resolved}.js`);
   }

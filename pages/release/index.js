@@ -1,6 +1,6 @@
 // pages/release/index.js
-import umami from '~/utils/umami/index';
-import { definePage } from '~/utils/umami/page';
+import umami from 'miniapp-umami';
+import { definePage } from 'miniapp-umami/page';
 
 definePage({
   /**

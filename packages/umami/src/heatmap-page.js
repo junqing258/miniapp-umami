@@ -1,4 +1,4 @@
-import umami from './index';
+import umami from './index.js';
 
 // These pages scroll inside components/CSS containers, not the Page viewport.
 const VIEWPORT_ONLY_ROUTES = ['pages/home/index', 'pages/my/index', 'pages/message/index', 'pages/chat/index'];

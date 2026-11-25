@@ -12,7 +12,9 @@
     "lint": "npx eslint ./ --no-eslintrc -c ./.eslintrc.js",
     "lint:fix": "npm run lint:fix-eslint && npm run lint:fix-prettier",
     "lint:fix-eslint": "eslint --ext .js,.ts ./ --max-warnings 0 --ignore-path .gitignore --ignore-path .eslintignore --fix",
-    "lint:fix-prettier": "prettier ./ --ignore-path .gitignore --ignore-path .eslintignore --ignore-path .prettierignore --write './**/*.{js,ts}' --ignore-unknown"
+    "lint:fix-prettier": "prettier ./ --ignore-path .gitignore --ignore-path .eslintignore --ignore-path .prettierignore --write './**/*.{js,ts}' --ignore-unknown",
+    "build:umami": "npm run build --prefix packages/umami",
+    "pack:umami": "npm pack ./packages/umami --pack-destination /private/tmp"
   },
   "keywords": [
     "wechat",
@@ -23,7 +25,8 @@
   "license": "MIT",
   "description": "a start-kit for wechat miniprogram powerby TDesign miniprogram",
   "dependencies": {
-    "tdesign-miniprogram": "^1.11.2"
+    "tdesign-miniprogram": "^1.18.0",
+    "miniapp-umami": "file:packages/umami"
   },
   "devDependencies": {
     "eslint": "^8.49.0",

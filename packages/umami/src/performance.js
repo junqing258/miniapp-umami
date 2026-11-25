@@ -96,7 +96,7 @@ export function startPerformanceObserver(track, subpackages = []) {
     if (!performance || typeof performance.createObserver !== 'function') return;
 
     const observer = performance.createObserver((entryList) => handleEntries(entryList, track, subpackages));
-    const supportedEntryTypes = observer.supportedEntryTypes;
+    const {supportedEntryTypes} = observer;
     const entryTypes = ['render', 'navigation', 'script'].filter(
       (entryType) => !Array.isArray(supportedEntryTypes) || supportedEntryTypes.includes(entryType),
     );

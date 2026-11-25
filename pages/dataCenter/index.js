@@ -1,5 +1,5 @@
+import { definePage } from 'miniapp-umami/page';
 import request from '~/api/request';
-import { definePage } from '~/utils/umami/page';
 
 definePage({
   /**
