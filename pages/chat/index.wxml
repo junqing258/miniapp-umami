@@ -1,7 +1,7 @@
 <view class="umami-heatmap-root">
 <wxs src="./index.wxs" module="utils" />
 
-<t-navbar class="nav-bar" title="{{ name }}" left-arrow />
+<t-navbar class="nav-bar" title="{{ name }}" left-arrow placeholder />
 
 <view class="chat-container">
   <scroll-view id="umami-scroll-surface" capture-bind:tap="__umamiHeatmapSurfaceTap" bindscroll="__umamiHeatmapSurfaceScroll" class="content" scroll-y scroll-into-view="{{ anchor }}">

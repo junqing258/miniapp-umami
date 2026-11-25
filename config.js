@@ -26,7 +26,7 @@ export default {
     },
     // Enabled for local testing; production requires HTTPS, privacy review, and real-device checks.
     enabled: true,
-    endpoint: 'http://192.168.31.120:3002/api/send',
+    endpoint: 'https://umami.xiaoanai.top/api/send',
     websiteId: '543538c5-b3bb-4858-b8ac-850cad751578',
     hostname: 'miniapp.local',
     // 联调数据的固定受众标签；在 Umami 中按 Tag = test-audience 筛选。

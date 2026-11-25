@@ -1,5 +1,5 @@
 <view class="umami-heatmap-root" capture-bind:tap="__umamiHeatmapTap">
-<t-navbar left-arrow />
+<t-navbar left-arrow placeholder />
 <view class="page login">
   <view class="login__title"> 欢迎登录 TDsign </view>
   <view class="login__content">

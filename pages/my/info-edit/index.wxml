@@ -1,5 +1,5 @@
 <view class="umami-heatmap-root" capture-bind:tap="__umamiHeatmapTap">
-<t-navbar left-arrow title="个人信息" />
+<t-navbar left-arrow title="个人信息" placeholder />
 <view class="info-edit">
   <t-cell class="info-edit__cell" title="用户名">
     <t-input bind:change="onNameChange" borderless placeholder="请输入用户名" slot="note" value="{{personInfo.name}}" />

@@ -1,5 +1,5 @@
 <view class="umami-heatmap-root" capture-bind:tap="__umamiHeatmapTap">
-<t-navbar title="搜索" left-arrow />
+<t-navbar title="搜索" left-arrow placeholder />
 <view class="page search-page">
   <view class="search-input">
     <t-search

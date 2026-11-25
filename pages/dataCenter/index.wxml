@@ -1,5 +1,5 @@
 <view class="umami-heatmap-root" capture-bind:tap="__umamiHeatmapTap">
-<t-navbar title="数据中心" left-arrow />
+<t-navbar title="数据中心" left-arrow placeholder />
 <view class="data-center">
   <view class="card first">
     <view class="card-header">
