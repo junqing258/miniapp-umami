@@ -46,16 +46,5 @@ export default {
     errors: { enabled: true },
     // 独立 /api/record 协议；服务端热图开关和采样率仍生效。
     heatmap: { enabled: true },
-    // 与 app.json 的 subpackages 保持同步，用于将原生 route 性能归因到分包。
-    subpackages: [
-      { name: 'search', root: '/pages/search' },
-      { name: 'edit', root: '/pages/my/info-edit' },
-      { name: 'chat', root: '/pages/chat' },
-      { name: 'login', root: '/pages/login' },
-      { name: 'loginCode', root: '/pages/loginCode' },
-      { name: 'dataCenter', root: '/pages/dataCenter' },
-      { name: 'setting', root: '/pages/setting' },
-      { name: 'release', root: '/pages/release' },
-    ],
   },
 };

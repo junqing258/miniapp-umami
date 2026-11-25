@@ -91,3 +91,7 @@ SDK 通过微信系统 API 获取设备品牌/型号、系统与平台、微信/
 ## 开源协议
 
 TDesign 遵循 [MIT 协议](https://github.com/TDesignOteam/tdesign-miniprogram-starter/blob/main/LICENSE)。
+
+### 分包性能统计
+
+示例不配置 `umami.subpackages`，也不生成分包映射文件。分包脚本注入耗时直接使用微信 `evaluateScript.moduleName` 标识分包；依赖路由映射的 `performance_subpackage_route` 不会上报。其他页面访问和性能采集保持不变。

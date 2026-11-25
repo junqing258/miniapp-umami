@@ -3,6 +3,15 @@
   "version": "0.1.0",
   "description": "Umami analytics SDK for WeChat Mini Programs",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/junqing258/miniapp-umami.git",
+    "directory": "packages/umami"
+  },
+  "homepage": "https://github.com/junqing258/miniapp-umami#readme",
+  "bugs": {
+    "url": "https://github.com/junqing258/miniapp-umami/issues"
+  },
   "publishConfig": {
     "registry": "https://registry.npmjs.org/"
   },
